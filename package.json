@@ -1,0 +1,43 @@
+{
+  "name": "@subf/oxlint-plugin",
+  "version": "0.0.0",
+  "description": "Oxlint plugin for subframe7536",
+  "homepage": "https://github.com/subframe7536/oxlint-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/subframe7536/oxlint-plugin/issues"
+  },
+  "license": "MIT",
+  "author": "subframe7536",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/subframe7536/oxlint-plugin.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "release": "bumpp --all",
+    "qa": "oxlint --fix && oxfmt",
+    "prepublishOnly": "bun run build",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "^1.58.0",
+    "bumpp": "^11.0.1",
+    "oxfmt": "^0.43.0",
+    "oxlint": "^1.58.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^5.9.3"
+  }
+}
