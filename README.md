@@ -1,23 +1,14 @@
-# tsdown-starter
+# @subf/oxlint-plugin
 
-A starter for creating a TypeScript package.
+Custom oxlint plugin for subframe7536.
 
-## Development
+## Rules
 
-- Install dependencies:
+| Name                     | Description                                                                                                   | Fixable |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------- | ------- |
+| `method-signature-style` | Enforce type's method signature style to be consistent. Port from `@typescript-eslint/method-signature-style` | ✅       |
 
-```bash
-npm install
-```
 
-- Run the unit tests:
+## Note
 
-```bash
-npm run test
-```
-
-- Build the library:
-
-```bash
-npm run build
-```
+`method-signature-style` will be a built-in rule in `oxlint` in the future, so it is recommended to use `@subf/oxlint-plugin` as a temporary solution.
