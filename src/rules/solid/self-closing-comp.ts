@@ -112,10 +112,19 @@ export const selfClosingCompRule: Rule = {
                 const selfCloseEnding = node.range[1]
                 const lastTokens = sourceCode.getLastTokens(node, { count: 2 })
                 const secondToLast = lastTokens[0]
-                const closeRange: [number, number] =
-                  secondToLast?.value === '/'
-                    ? [secondToLast.range[0], selfCloseEnding]
-                    : [selfCloseEnding - 1, selfCloseEnding]
+                // Find the start of the " />" or "/>" sequence, including any whitespace before it
+                const selfCloseStart = secondToLast?.value === '/'
+                  ? (() => {
+                    // Walk backwards to include any space before the slash
+                    let start = secondToLast.range[0]
+                    const text = sourceCode.getText(node)
+                    const slashIndex = start - node.range[0]
+                    let i = slashIndex - 1
+                    while (i >= 0 && /\s/.test(text[i]!)) i--
+                    return node.range[0] + i + 1
+                  })()
+                  : selfCloseEnding - 1
+                const closeRange: [number, number] = [selfCloseStart, selfCloseEnding]
                 return fixer.replaceTextRange(closeRange, `></${tagName}>`)
               },
             })

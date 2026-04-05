@@ -104,7 +104,7 @@ export const noInnerHTMLRule: Rule = {
 
           const innerHtml = getStaticString(innerHtmlNode)
           if (typeof innerHtml === 'string') {
-            const looksLikeHtml = /<[a-z][\s\S]*>/i.test(innerHtml)
+            const looksLikeHtml = /<[a-z][^>]*>/i.test(innerHtml)
             if (looksLikeHtml) {
               if (
                 node.parent?.parent?.type === 'JSXElement' &&

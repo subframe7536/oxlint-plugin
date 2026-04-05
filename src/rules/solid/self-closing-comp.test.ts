@@ -32,7 +32,7 @@ ruleTester.run('solid/self-closing-comp', rule, {
       code: `<div />`,
       options: [{ html: 'void' }],
       errors: [{ messageId: 'dontSelfClose' }],
-      output: `<div ></div>`,
+      output: `<div></div>`,
     },
   ],
 })
