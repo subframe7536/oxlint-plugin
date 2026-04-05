@@ -26,7 +26,7 @@ ruleTester.run('solid-no-innerhtml', rule, {
       code: `<div innerHTML={userInput} />`,
       errors: [{ messageId: 'dangerous' }],
     },
-    // Static innerHTML without allowStatic:false option - default allows it
+    // Static innerHTML is flagged when allowStatic is explicitly set to false
     {
       code: `<div innerHTML="<p>safe</p>" />`,
       options: [{ allowStatic: false }],
