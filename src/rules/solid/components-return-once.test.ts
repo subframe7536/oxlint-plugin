@@ -8,8 +8,9 @@ const ruleTester = new RuleTester({
   },
 })
 
-ruleTester.run('solid/components-return-once', rule, {
+ruleTester.run('solid-components-return-once', rule, {
   valid: [
+    // Single return with JSX
     {
       code: `
 function App() {
@@ -17,6 +18,7 @@ function App() {
 }
       `,
     },
+    // Using Solid's Show for conditional rendering
     {
       code: `
 function App() {
@@ -24,8 +26,43 @@ function App() {
 }
       `,
     },
+    // Using Solid's Switch/Match
+    {
+      code: `
+function App(props) {
+  return (
+    <Switch>
+      <Match when={props.a}><A /></Match>
+      <Match when={props.b}><B /></Match>
+    </Switch>
+  );
+}
+      `,
+    },
+    // Arrow function component - single return
+    {
+      code: `const App = () => <div>hello</div>`,
+    },
+    // Non-component function with early returns is fine
+    {
+      code: `
+function helper(x) {
+  if (!x) return null;
+  return x + 1;
+}
+      `,
+    },
+    // Component returning nothing (null/undefined) once
+    {
+      code: `
+function App() {
+  return null;
+}
+      `,
+    },
   ],
   invalid: [
+    // Early return in component
     {
       code: `
 function App(props) {
@@ -34,6 +71,17 @@ function App(props) {
 }
       `,
       errors: [{ messageId: 'noEarlyReturn' }],
+    },
+    // Multiple conditional returns
+    {
+      code: `
+function Comp(props) {
+  if (props.loading) return <p>Loading...</p>;
+  if (props.error) return <p>Error</p>;
+  return <div>{props.data}</div>;
+}
+      `,
+      errors: [{ messageId: 'noEarlyReturn' }, { messageId: 'noEarlyReturn' }],
     },
   ],
 })
