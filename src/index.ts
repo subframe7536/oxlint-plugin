@@ -56,6 +56,7 @@ export default plugin
  * ```
  */
 export const solidConfig: OxlintConfig = {
+  jsPlugins: [{ name: 'subf', specifier: '@subf/oxlint-plugin' }],
   rules: {
     'subf/solid-components-return-once': 'warn',
     'subf/solid-event-handlers': 'warn',
