@@ -1,6 +1,20 @@
 import type { Plugin } from '@oxlint/plugins'
+import type { OxlintConfig } from 'oxlint'
 
 import { methodSignatureStyleRule } from './rules/method-signature-style'
+import { componentsReturnOnceRule } from './rules/solid/components-return-once'
+import { eventHandlersRule } from './rules/solid/event-handlers'
+import { importsRule } from './rules/solid/imports'
+import { jsxNoDuplicatePropsRule } from './rules/solid/jsx-no-duplicate-props'
+import { jsxNoScriptUrlRule } from './rules/solid/jsx-no-script-url'
+import { jsxNoUndefRule } from './rules/solid/jsx-no-undef'
+import { jsxUsesVarsRule } from './rules/solid/jsx-uses-vars'
+import { noDestructureRule } from './rules/solid/no-destructure'
+import { noInnerHTMLRule } from './rules/solid/no-innerhtml'
+import { preferForRule } from './rules/solid/prefer-for'
+import { preferShowRule } from './rules/solid/prefer-show'
+import { reactivityRule } from './rules/solid/reactivity'
+import { selfClosingCompRule } from './rules/solid/self-closing-comp'
 
 const plugin: Plugin = {
   meta: {
@@ -8,7 +22,54 @@ const plugin: Plugin = {
   },
   rules: {
     'method-signature-style': methodSignatureStyleRule,
+    'solid-components-return-once': componentsReturnOnceRule,
+    'solid-event-handlers': eventHandlersRule,
+    'solid-imports': importsRule,
+    'solid-jsx-no-duplicate-props': jsxNoDuplicatePropsRule,
+    'solid-jsx-no-script-url': jsxNoScriptUrlRule,
+    'solid-jsx-no-undef': jsxNoUndefRule,
+    'solid-jsx-uses-vars': jsxUsesVarsRule,
+    'solid-no-destructure': noDestructureRule,
+    'solid-no-innerhtml': noInnerHTMLRule,
+    'solid-prefer-for': preferForRule,
+    'solid-prefer-show': preferShowRule,
+    'solid-reactivity': reactivityRule,
+    'solid-self-closing-comp': selfClosingCompRule,
   },
 }
 
 export default plugin
+
+/**
+ * Oxlint override config that enables all ported `solid-*` rules.
+ *
+ * Usage in `oxlint.config.ts`:
+ * ```ts
+ * import { defineConfig } from 'oxlint'
+ * import subfPlugin from '@subf/oxlint-plugin'
+ * import { solidConfig } from '@subf/oxlint-plugin'
+ *
+ * export default defineConfig({
+ *   jsPlugins: [subfPlugin],
+ *   extends: [solidConfig],
+ * })
+ * ```
+ */
+export const solidConfig: OxlintConfig = {
+  jsPlugins: [{ name: 'subf', specifier: '@subf/oxlint-plugin' }],
+  rules: {
+    'subf/solid-components-return-once': 'warn',
+    'subf/solid-event-handlers': 'warn',
+    'subf/solid-imports': 'warn',
+    'subf/solid-jsx-no-duplicate-props': 'error',
+    'subf/solid-jsx-no-script-url': 'error',
+    'subf/solid-jsx-no-undef': 'error',
+    'subf/solid-jsx-uses-vars': 'warn',
+    'subf/solid-no-destructure': 'error',
+    'subf/solid-no-innerhtml': 'warn',
+    'subf/solid-prefer-for': 'warn',
+    'subf/solid-prefer-show': 'warn',
+    'subf/solid-reactivity': 'error',
+    'subf/solid-self-closing-comp': 'warn',
+  },
+}
