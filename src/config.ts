@@ -4,17 +4,15 @@ export const FILES_TS_TSX: string[] = ['**/*.{ts,tsx}']
 /**
  * Oxlint override config that enables all ported `solid-*` rules.
  *
- * Usage in `oxlint.config.ts`:
  * ```ts
+ * // oxlint.config.ts
  * import { defineConfig } from 'oxlint'
- * import subfPlugin from '@subf/oxlint-plugin'
- * import { solidConfig } from '@subf/oxlint-plugin'
+ * import { solidConfig } from '@subf/oxlint-plugin/config'
  *
  * export default defineConfig({
- *   jsPlugins: [subfPlugin],
  *   extends: [solidConfig],
  * })
- * ```
+```
  */
 export const solidConfig: OxlintOverride = {
   files: FILES_TS_TSX,
