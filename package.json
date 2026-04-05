@@ -1,6 +1,6 @@
 {
   "name": "@subf/oxlint-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Custom oxlint plugin for subframe7536",
   "homepage": "https://github.com/subframe7536/oxlint-plugin#readme",
   "bugs": {
