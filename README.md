@@ -1,6 +1,6 @@
 # @subf/oxlint-plugin
 
-Custom oxlint plugin for subframe7536.
+Custom oxlint plugin for TypeScript and SolidJS.
 
 ## Setup
 
