@@ -31,7 +31,10 @@ function getPropertyInfo(prop: ESTree.ObjectProperty): PropertyInfo | null {
       real: prop.key,
       varName,
       computed: prop.computed,
-      init: value.type === 'AssignmentPattern' ? (value as ESTree.AssignmentPattern).right as ESTree.Node : undefined,
+      init:
+        value.type === 'AssignmentPattern'
+          ? ((value as ESTree.AssignmentPattern).right as ESTree.Node)
+          : undefined,
     }
   }
   return null
@@ -42,7 +45,7 @@ export const noDestructureRule: Rule = {
     type: 'problem',
     docs: {
       description:
-        "Disallow destructuring props. In Solid, props must be used with property accesses (`props.foo`) to preserve reactivity. This rule only tracks destructuring in the parameter list.",
+        'Disallow destructuring props. In Solid, props must be used with property accesses (`props.foo`) to preserve reactivity. This rule only tracks destructuring in the parameter list.',
       url: 'https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-destructure.md',
     },
     fixable: 'code',
@@ -52,8 +55,8 @@ export const noDestructureRule: Rule = {
         "Destructuring component props breaks Solid's reactivity; use property access instead.",
     },
   },
-  create(context) {
-    const functionStack: Array<{ hasJSX: boolean }> = []
+  createOnce(context) {
+    let functionStack: Array<{ hasJSX: boolean }> = []
     const currentFunction = () => functionStack[functionStack.length - 1]
 
     const onFunctionEnter = () => {
@@ -191,6 +194,9 @@ export const noDestructureRule: Rule = {
     }
 
     return {
+      before() {
+        functionStack = []
+      },
       FunctionDeclaration: onFunctionEnter,
       FunctionExpression: onFunctionEnter,
       ArrowFunctionExpression: onFunctionEnter,
@@ -198,10 +204,14 @@ export const noDestructureRule: Rule = {
       'FunctionExpression:exit': onFunctionExit,
       'ArrowFunctionExpression:exit': onFunctionExit,
       JSXElement() {
-        if (functionStack.length) currentFunction().hasJSX = true
+        if (functionStack.length) {
+          currentFunction().hasJSX = true
+        }
       },
       JSXFragment() {
-        if (functionStack.length) currentFunction().hasJSX = true
+        if (functionStack.length) {
+          currentFunction().hasJSX = true
+        }
       },
     }
   },

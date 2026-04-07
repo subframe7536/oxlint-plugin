@@ -452,14 +452,23 @@ export const methodSignatureStyleRule: Rule = {
     ],
     defaultOptions: ['property'],
   },
-  create(context) {
-    const options = context.options as [('property' | 'method')?]
-    const mode = options?.[0] ?? 'property'
-
-    if (mode === 'property') {
-      return createPropertyModeVisitor(context)
-    } else {
-      return createMethodModeVisitor(context)
+  createOnce(context) {
+    let visitor: Visitor
+    return {
+      before() {
+        const options = context.options as [('property' | 'method')?]
+        const mode = options?.[0] ?? 'property'
+        visitor =
+          mode === 'property'
+            ? createPropertyModeVisitor(context)
+            : createMethodModeVisitor(context)
+      },
+      TSMethodSignature(node: ESTree.TSMethodSignature): void {
+        visitor.TSMethodSignature?.(node)
+      },
+      TSPropertySignature(node: ESTree.TSPropertySignature): void {
+        visitor.TSPropertySignature?.(node)
+      },
     }
   },
 }

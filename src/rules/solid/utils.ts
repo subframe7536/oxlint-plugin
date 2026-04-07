@@ -53,9 +53,15 @@ export const getFunctionName = (node: FunctionNode): string | null => {
 }
 
 export const formatList = (strings: string[]): string => {
-  if (strings.length === 0) return ''
-  if (strings.length === 1) return `'${strings[0]}'`
-  if (strings.length === 2) return `'${strings[0]}' and '${strings[1]}'`
+  if (strings.length === 0) {
+    return ''
+  }
+  if (strings.length === 1) {
+    return `'${strings[0]}'`
+  }
+  if (strings.length === 2) {
+    return `'${strings[0]}' and '${strings[1]}'`
+  }
   const last = strings.length - 1
   return `${strings
     .slice(0, last)
@@ -65,22 +71,20 @@ export const formatList = (strings: string[]): string => {
 
 // ==================== Scope helpers ====================
 
-export function findVariableInScope(scope: Scope, name: string): Variable | null {
-  let current: Scope | null = scope
-  while (current) {
-    const variable = current.set.get(name)
-    if (variable) return variable
-    current = current.upper
-  }
-  return null
-}
-
 export function findVariable(
   context: Context,
   node: ESTree.Node & { name: string },
 ): Variable | null {
   const scope = context.sourceCode.getScope(node)
-  return findVariableInScope(scope, node.name)
+  let current: Scope | null = scope
+  while (current) {
+    const variable = current.set.get(node.name)
+    if (variable) {
+      return variable
+    }
+    current = current.upper
+  }
+  return null
 }
 
 // ==================== AST traversal ====================
@@ -196,9 +200,7 @@ export function ignoreTransparentWrappers(node: ESTree.Node, up = false): ESTree
     node.type === 'TSNonNullExpression' ||
     node.type === 'TSSatisfiesExpression'
   ) {
-    const next = up
-      ? (node.parent as ESTree.Node | null | undefined)
-      : (node as ESTree.TSAsExpression).expression
+    const next = up ? node.parent : node.expression
     if (next) {
       return ignoreTransparentWrappers(next, up)
     }
@@ -243,9 +245,8 @@ export function* jsxGetAllProps(props: JSXAttributes): Generator<[string, ESTree
 
 export function getStaticStringValue(node: ESTree.Node): string | null {
   if (node.type === 'Literal') {
-    const value = (node as { value: unknown }).value
-    if (typeof value === 'string') return value
-    return null
+    const value = node.value
+    return typeof value === 'string' ? value : null
   }
   return null
 }
@@ -257,7 +258,7 @@ export function trackImports(fromModule: RegExp = /^solid-js(?:\/?|\b)/) {
 
   const handleImportDeclaration = (node: ESTree.ImportDeclaration): void => {
     const src = node.source
-    const srcVal = src.type === 'Literal' ? ((src as { value: unknown }).value as string) : ''
+    const srcVal = src.type === 'Literal' ? src.value : ''
     if (!fromModule.test(srcVal)) return
 
     for (const specifier of node.specifiers) {
@@ -265,9 +266,9 @@ export function trackImports(fromModule: RegExp = /^solid-js(?:\/?|\b)/) {
         const imported = specifier.imported
         const importedName =
           imported.type === 'Identifier'
-            ? (imported as ESTree.IdentifierReference).name
+            ? imported.name
             : imported.type === 'Literal'
-              ? ((imported as { value: unknown }).value as string)
+              ? imported.value
               : ''
         const localName = specifier.local.name
         importMap.set(importedName, localName)
@@ -326,7 +327,7 @@ export function insertImports(
   isType = false,
 ): Fix {
   const identifiersString = identifiers.join(', ')
-  const program = sourceCode.ast as ESTree.Program
+  const program = sourceCode.ast
 
   const firstImport =
     aboveImport ??
@@ -366,8 +367,7 @@ export function removeSpecifier(
 
 export function trace(node: ESTree.Node, context: Context): ESTree.Node {
   if (node.type === 'Identifier') {
-    const identNode = node as ESTree.IdentifierReference
-    const variable = findVariable(context, identNode)
+    const variable = findVariable(context, node)
     if (!variable) return node
 
     const def = variable.defs[0]

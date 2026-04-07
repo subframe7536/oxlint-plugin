@@ -43,16 +43,11 @@ export const jsxNoUndefRule: Rule = {
       autoImport: "{{imports}} should be imported from '{{source}}'.",
     },
   },
-  create(context) {
-    const options =
-      (context.options as [
-        { allowGlobals?: boolean; autoImport?: boolean; typescriptEnabled?: boolean }?,
-      ])[0] ?? {}
-    const allowGlobals = options.allowGlobals ?? false
-    const autoImport = options.autoImport !== false
-    const isTypeScriptEnabled = options.typescriptEnabled ?? false
-
-    const missingComponentsSet = new Set<string>()
+  createOnce(context) {
+    let allowGlobals: boolean
+    let autoImport: boolean
+    let isTypeScriptEnabled: boolean
+    let missingComponentsSet = new Set<string>()
 
     function isDefinedInScope(name: string, node: ESTree.Node): boolean {
       let scope: Scope | null = context.sourceCode.getScope(node)
@@ -82,7 +77,12 @@ export const jsxNoUndefRule: Rule = {
 
       if (isDefinedInScope(name, node)) return
 
-      if (opts.isComponent && autoImport && AUTO_COMPONENTS.includes(name) && !missingComponentsSet.has(name)) {
+      if (
+        opts.isComponent &&
+        autoImport &&
+        AUTO_COMPONENTS.includes(name) &&
+        !missingComponentsSet.has(name)
+      ) {
         missingComponentsSet.add(name)
       } else if (opts.isCustomDirective) {
         context.report({
@@ -100,6 +100,18 @@ export const jsxNoUndefRule: Rule = {
     }
 
     return {
+      before() {
+        const options =
+          (
+            context.options as [
+              { allowGlobals?: boolean; autoImport?: boolean; typescriptEnabled?: boolean }?,
+            ]
+          )[0] ?? {}
+        allowGlobals = options.allowGlobals ?? false
+        autoImport = options.autoImport !== false
+        isTypeScriptEnabled = options.typescriptEnabled ?? false
+        missingComponentsSet = new Set<string>()
+      },
       JSXOpeningElement(node) {
         switch (node.name.type) {
           case 'JSXIdentifier':
@@ -144,7 +156,8 @@ export const jsxNoUndefRule: Rule = {
               n.type === 'ImportDeclaration' &&
               (n as { importKind?: string }).importKind !== 'type' &&
               (n as ESTree.ImportDeclaration).source.type === 'Literal' &&
-              ((n as ESTree.ImportDeclaration).source as { value: unknown }).value === SOURCE_MODULE,
+              ((n as ESTree.ImportDeclaration).source as { value: unknown }).value ===
+                SOURCE_MODULE,
           ) as ESTree.ImportDeclaration | undefined
 
           if (importNode) {
@@ -152,14 +165,16 @@ export const jsxNoUndefRule: Rule = {
               node: importNode,
               messageId: 'autoImport',
               data: { imports: formatList(missingComponents), source: SOURCE_MODULE },
-              fix: (fixer) => appendImports(fixer, context.sourceCode, importNode, missingComponents),
+              fix: (fixer) =>
+                appendImports(fixer, context.sourceCode, importNode, missingComponents),
             })
           } else {
             context.report({
               node: programNode,
               messageId: 'autoImport',
               data: { imports: formatList(missingComponents), source: SOURCE_MODULE },
-              fix: (fixer) => insertImports(fixer, context.sourceCode, 'solid-js', missingComponents),
+              fix: (fixer) =>
+                insertImports(fixer, context.sourceCode, 'solid-js', missingComponents),
             })
           }
         }

@@ -86,7 +86,10 @@ class ScopeStack {
     return this.items[this.items.length - 2]
   }
 
-  pushSignal(variable: Variable, declarationScope: ProgramOrFunctionNode = this.currentScope().node) {
+  pushSignal(
+    variable: Variable,
+    declarationScope: ProgramOrFunctionNode = this.currentScope().node,
+  ) {
     this.signals.push({
       references: variable.references.filter((r) => !r.init),
       variable,
@@ -106,7 +109,10 @@ class ScopeStack {
     }
   }
 
-  pushProps(variable: Variable, declarationScope: ProgramOrFunctionNode = this.currentScope().node) {
+  pushProps(
+    variable: Variable,
+    declarationScope: ProgramOrFunctionNode = this.currentScope().node,
+  ) {
     this.props.push({
       references: variable.references.filter((r) => !r.init),
       variable,
@@ -114,13 +120,19 @@ class ScopeStack {
     })
   }
 
-  consumeSignalReferencesInScope(): Array<{ reference: Reference; declarationScope: ProgramOrFunctionNode }> {
+  consumeSignalReferencesInScope(): Array<{
+    reference: Reference
+    declarationScope: ProgramOrFunctionNode
+  }> {
     const result = this.consumeReferencesInScope(this.signals)
     this.signals = this.signals.filter((v) => v.references.length !== 0)
     return result
   }
 
-  consumePropsReferencesInScope(): Array<{ reference: Reference; declarationScope: ProgramOrFunctionNode }> {
+  consumePropsReferencesInScope(): Array<{
+    reference: Reference
+    declarationScope: ProgramOrFunctionNode
+  }> {
     const result = this.consumeReferencesInScope(this.props)
     this.props = this.props.filter((v) => v.references.length !== 0)
     return result
@@ -140,7 +152,9 @@ class ScopeStack {
           notInScope.push(reference)
         }
       }
-      result.push(...inScope.map((reference) => ({ reference, declarationScope: variable.declarationScope })))
+      result.push(
+        ...inScope.map((reference) => ({ reference, declarationScope: variable.declarationScope })),
+      )
       variable.references = notInScope
     }
     return result
@@ -177,11 +191,7 @@ function getFunctionHeadLoc(node: FunctionNode) {
   return { start: node.loc!.start, end: body.loc!.start }
 }
 
-const getNthDestructuredVar = (
-  id: ESTree.Node,
-  n: number,
-  context: Context,
-): Variable | null => {
+const getNthDestructuredVar = (id: ESTree.Node, n: number, context: Context): Variable | null => {
   if (id.type === 'ArrayPattern') {
     const el = (id as ESTree.ArrayPattern).elements[n]
     if (el?.type === 'Identifier') {
@@ -191,10 +201,7 @@ const getNthDestructuredVar = (
   return null
 }
 
-const getReturnedVar = (
-  id: ESTree.Node,
-  context: Context,
-): Variable | null => {
+const getReturnedVar = (id: ESTree.Node, context: Context): Variable | null => {
   if (id.type === 'Identifier') {
     return findVariable(context, id as ESTree.IdentifierReference & { name: string })
   }
@@ -242,9 +249,8 @@ export const reactivityRule: Rule = {
         "This tracked scope should not be async. Solid's reactivity only tracks synchronously.",
     },
   },
-  create(context) {
-    const options = ((context.options as [{ customReactiveFunctions?: string[] }?])[0]) ?? {}
-    const customReactiveFunctions = options.customReactiveFunctions ?? []
+  createOnce(context) {
+    let customReactiveFunctions: string[] = []
 
     const warnShouldDestructure = (node: ESTree.Node, nth?: string) =>
       context.report({
@@ -255,21 +261,27 @@ export const reactivityRule: Rule = {
     const warnShouldAssign = (node: ESTree.Node) =>
       context.report({ node, messageId: 'shouldAssign' })
 
-    const sourceCode = context.sourceCode
+    let sourceCode: any
     const scopeStack = new ScopeStack()
     const currentScope = () => scopeStack.currentScope()
     const parentScope = () => scopeStack.parentScope()
     const { matchImport, handleImportDeclaration } = trackImports()
 
-    const markPropsOnCondition = (node: FunctionNode, cb: (props: ESTree.IdentifierReference) => boolean) => {
+    const markPropsOnCondition = (
+      node: FunctionNode,
+      cb: (props: ESTree.IdentifierReference) => boolean,
+    ) => {
       if (
         node.params.length === 1 &&
-        (node.params[0].type === 'Identifier') &&
+        node.params[0].type === 'Identifier' &&
         node.parent?.type !== 'JSXExpressionContainer' &&
         node.parent?.type !== 'TemplateLiteral' &&
         cb(node.params[0] as ESTree.IdentifierReference)
       ) {
-        const propsParam = findVariable(context, node.params[0] as ESTree.IdentifierReference & { name: string })
+        const propsParam = findVariable(
+          context,
+          node.params[0] as ESTree.IdentifierReference & { name: string },
+        )
         if (propsParam) {
           scopeStack.pushProps(propsParam, node)
         }
@@ -308,9 +320,7 @@ export const reactivityRule: Rule = {
           let parentMemberExpression: ESTree.MemberExpression | null = null
           if (identifier.parent?.type === 'MemberExpression') {
             parentMemberExpression = identifier.parent as ESTree.MemberExpression
-            while (
-              parentMemberExpression!.parent?.type === 'MemberExpression'
-            ) {
+            while (parentMemberExpression!.parent?.type === 'MemberExpression') {
               parentMemberExpression = parentMemberExpression!.parent as ESTree.MemberExpression
             }
           }
@@ -336,7 +346,8 @@ export const reactivityRule: Rule = {
           }
 
           if (currentScopeNode.type === 'FunctionDeclaration') {
-            const functionVariable = sourceCode.scopeManager?.getDeclaredVariables(currentScopeNode)?.[0]
+            const functionVariable =
+              sourceCode.scopeManager?.getDeclaredVariables(currentScopeNode)?.[0]
             if (functionVariable) {
               scopeStack.pushUniqueSignal(functionVariable, declarationScope)
             } else {
@@ -400,8 +411,23 @@ export const reactivityRule: Rule = {
           } else if (
             identifier.parent?.type === 'BinaryExpression' &&
             [
-              '<', '<=', '>', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%', '**',
-              '|', '^', '&', 'in',
+              '<',
+              '<=',
+              '>',
+              '>=',
+              '<<',
+              '>>',
+              '>>>',
+              '+',
+              '-',
+              '*',
+              '/',
+              '%',
+              '**',
+              '|',
+              '^',
+              '&',
+              'in',
             ].includes((identifier.parent as ESTree.BinaryExpression).operator)
           ) {
             reportBadSignal('arithmetic or comparisons')
@@ -411,7 +437,7 @@ export const reactivityRule: Rule = {
           ) {
             reportBadSignal('unary expressions')
           } else if (
-            (identifier.parent?.type === 'MemberExpression') &&
+            identifier.parent?.type === 'MemberExpression' &&
             !(identifier.parent as ESTree.MemberExpression).computed &&
             (identifier.parent as ESTree.StaticMemberExpression).property === identifier
           ) {
@@ -429,9 +455,13 @@ export const reactivityRule: Rule = {
               isJSXElementOrFragment(elementOrAttribute) ||
               (elementOrAttribute?.type === 'JSXAttribute' &&
                 elementOrAttribute.parent?.type === 'JSXOpeningElement' &&
-                (elementOrAttribute.parent as ESTree.JSXOpeningElement).name.type === 'JSXIdentifier' &&
+                (elementOrAttribute.parent as ESTree.JSXOpeningElement).name.type ===
+                  'JSXIdentifier' &&
                 isDOMElementName(
-                  ((elementOrAttribute.parent as ESTree.JSXOpeningElement).name as ESTree.JSXIdentifier).name,
+                  (
+                    (elementOrAttribute.parent as ESTree.JSXOpeningElement)
+                      .name as ESTree.JSXIdentifier
+                  ).name,
                 ))
             ) {
               reportBadSignal('JSX')
@@ -449,7 +479,7 @@ export const reactivityRule: Rule = {
             data: { name: identifier.name },
           })
         } else if (
-          (identifier.parent?.type === 'MemberExpression') &&
+          identifier.parent?.type === 'MemberExpression' &&
           (identifier.parent as ESTree.MemberExpression).object === identifier
         ) {
           const parent = identifier.parent as ESTree.MemberExpression
@@ -513,7 +543,8 @@ export const reactivityRule: Rule = {
           !(node.callee as ESTree.MemberExpression).computed &&
           (node.callee as ESTree.MemberExpression).object.type !== 'ObjectExpression' &&
           /^(?:forEach|map|flatMap|reduce|reduceRight|find|findIndex|filter|every|some)$/.test(
-            ((node.callee as ESTree.StaticMemberExpression).property as ESTree.IdentifierName).name ?? '',
+            ((node.callee as ESTree.StaticMemberExpression).property as ESTree.IdentifierName)
+              .name ?? '',
           )
         ) {
           scopeStack.syncCallbacks.add(node.arguments[0] as FunctionNode)
@@ -525,7 +556,11 @@ export const reactivityRule: Rule = {
           matchImport(['createSignal', 'createStore'], calleeName) &&
           node.parent?.type === 'VariableDeclarator'
         ) {
-          const setter = getNthDestructuredVar((node.parent as ESTree.VariableDeclarator).id, 1, context)
+          const setter = getNthDestructuredVar(
+            (node.parent as ESTree.VariableDeclarator).id,
+            1,
+            context,
+          )
           if (setter) {
             for (const reference of setter.references) {
               const { identifier } = reference
@@ -554,10 +589,7 @@ export const reactivityRule: Rule = {
       }
     }
 
-    const checkForReactiveAssignment = (
-      id: ESTree.Node | null,
-      init: ESTree.Node,
-    ) => {
+    const checkForReactiveAssignment = (id: ESTree.Node | null, init: ESTree.Node) => {
       let initNode = ignoreTransparentWrappers(init)
 
       if (initNode.type === 'CallExpression' && initNode.callee.type === 'Identifier') {
@@ -621,7 +653,10 @@ export const reactivityRule: Rule = {
             (arg1 as FunctionNode).params.length >= 2 &&
             (arg1 as FunctionNode).params[1].type === 'Identifier'
           ) {
-            const indexSignal = findVariable(context, (arg1 as FunctionNode).params[1] as ESTree.IdentifierReference & { name: string })
+            const indexSignal = findVariable(
+              context,
+              (arg1 as FunctionNode).params[1] as ESTree.IdentifierReference & { name: string },
+            )
             if (indexSignal) scopeStack.pushSignal(indexSignal)
           }
         } else if (matchImport('indexArray', callee.name)) {
@@ -631,7 +666,10 @@ export const reactivityRule: Rule = {
             (arg1 as FunctionNode).params.length >= 1 &&
             (arg1 as FunctionNode).params[0].type === 'Identifier'
           ) {
-            const valueSignal = findVariable(context, (arg1 as FunctionNode).params[0] as ESTree.IdentifierReference & { name: string })
+            const valueSignal = findVariable(
+              context,
+              (arg1 as FunctionNode).params[0] as ESTree.IdentifierReference & { name: string },
+            )
             if (valueSignal) scopeStack.pushSignal(valueSignal)
           }
         }
@@ -653,7 +691,10 @@ export const reactivityRule: Rule = {
             isFunctionNode(traced) ||
             (traced.type === 'Identifier' &&
               traced.parent?.type !== 'MemberExpression' &&
-              !(traced.parent?.type === 'CallExpression' && (traced.parent as ESTree.CallExpression).callee === traced))
+              !(
+                traced.parent?.type === 'CallExpression' &&
+                (traced.parent as ESTree.CallExpression).callee === traced
+              ))
           ) {
             pushTrackedScope(cn, 'called-function')
             return 'skip'
@@ -684,18 +725,25 @@ export const reactivityRule: Rule = {
         const jsxNode = node as ESTree.JSXExpressionContainer
         if (
           jsxNode.parent?.type === 'JSXAttribute' &&
-          context.sourceCode.getText((jsxNode.parent as ESTree.JSXAttribute).name).startsWith('on') &&
+          context.sourceCode
+            .getText((jsxNode.parent as ESTree.JSXAttribute).name)
+            .startsWith('on') &&
           (jsxNode.parent as ESTree.JSXAttribute).parent?.type === 'JSXOpeningElement' &&
-          ((jsxNode.parent as ESTree.JSXAttribute).parent as ESTree.JSXOpeningElement).name.type === 'JSXIdentifier' &&
+          ((jsxNode.parent as ESTree.JSXAttribute).parent as ESTree.JSXOpeningElement).name.type ===
+            'JSXIdentifier' &&
           isDOMElementName(
-            (((jsxNode.parent as ESTree.JSXAttribute).parent as ESTree.JSXOpeningElement).name as ESTree.JSXIdentifier).name,
+            (
+              ((jsxNode.parent as ESTree.JSXAttribute).parent as ESTree.JSXOpeningElement)
+                .name as ESTree.JSXIdentifier
+            ).name,
           )
         ) {
           pushTrackedScope(jsxNode.expression, 'called-function')
         } else if (
           jsxNode.parent?.type === 'JSXAttribute' &&
           (jsxNode.parent as ESTree.JSXAttribute).name.type === 'JSXNamespacedName' &&
-          ((jsxNode.parent as ESTree.JSXAttribute).name as ESTree.JSXNamespacedName).namespace.name === 'use' &&
+          ((jsxNode.parent as ESTree.JSXAttribute).name as ESTree.JSXNamespacedName).namespace
+            .name === 'use' &&
           isFunctionNode(jsxNode.expression)
         ) {
           pushTrackedScope(jsxNode.expression, 'called-function')
@@ -757,7 +805,13 @@ export const reactivityRule: Rule = {
             if (arg0) pushTrackedScope(arg0, 'function')
           } else if (
             matchImport(['onMount', 'onCleanup', 'onError'], name) ||
-            ['setInterval', 'setTimeout', 'setImmediate', 'requestAnimationFrame', 'requestIdleCallback'].includes(name)
+            [
+              'setInterval',
+              'setTimeout',
+              'setImmediate',
+              'requestAnimationFrame',
+              'requestIdleCallback',
+            ].includes(name)
           ) {
             if (arg0) pushTrackedScope(arg0, 'called-function')
           } else if (matchImport('on', name)) {
@@ -778,29 +832,43 @@ export const reactivityRule: Rule = {
                 (property as ESTree.ObjectProperty).kind === 'get' &&
                 isFunctionNode((property as ESTree.ObjectProperty).value as ESTree.Node)
               ) {
-                pushTrackedScope((property as ESTree.ObjectProperty).value as ESTree.Node, 'function')
+                pushTrackedScope(
+                  (property as ESTree.ObjectProperty).value as ESTree.Node,
+                  'function',
+                )
               }
             }
           } else if (matchImport('runWithOwner', name)) {
             if (arg1) {
               let isTrackedScope = true
-              const owner = arg0?.type === 'Identifier' && findVariable(context, arg0 as ESTree.IdentifierReference & { name: string })
+              const owner =
+                arg0?.type === 'Identifier' &&
+                findVariable(context, arg0 as ESTree.IdentifierReference & { name: string })
               if (owner) {
                 const decl = owner.defs[0]
                 if (
                   decl &&
                   decl.node.type === 'VariableDeclarator' &&
                   (decl.node as ESTree.VariableDeclarator).init?.type === 'CallExpression' &&
-                  ((decl.node as ESTree.VariableDeclarator).init as ESTree.CallExpression).callee.type === 'Identifier' &&
-                  matchImport('getOwner', (((decl.node as ESTree.VariableDeclarator).init as ESTree.CallExpression).callee as ESTree.IdentifierReference).name)
+                  ((decl.node as ESTree.VariableDeclarator).init as ESTree.CallExpression).callee
+                    .type === 'Identifier' &&
+                  matchImport(
+                    'getOwner',
+                    (
+                      ((decl.node as ESTree.VariableDeclarator).init as ESTree.CallExpression)
+                        .callee as ESTree.IdentifierReference
+                    ).name,
+                  )
                 ) {
                   const ownerFunction = findParent(decl.node, isProgramOrFunctionNode)
                   const scopeStackIndex = scopeStack.findIndex(({ node: n }) => ownerFunction === n)
                   if (
                     (scopeStackIndex >= 1 &&
-                      !scopeStack.getAt(scopeStackIndex - 1).trackedScopes.some(
-                        (ts) => ts.expect === 'function' && ts.node === ownerFunction,
-                      )) ||
+                      !scopeStack
+                        .getAt(scopeStackIndex - 1)
+                        .trackedScopes.some(
+                          (ts) => ts.expect === 'function' && ts.node === ownerFunction,
+                        )) ||
                     scopeStackIndex === 0
                   ) {
                     isTrackedScope = false
@@ -809,10 +877,7 @@ export const reactivityRule: Rule = {
               }
               if (isTrackedScope) pushTrackedScope(arg1, 'function')
             }
-          } else if (
-            /^(?:use|create)[A-Z]/.test(name) ||
-            customReactiveFunctions.includes(name)
-          ) {
+          } else if (/^(?:use|create)[A-Z]/.test(name) || customReactiveFunctions.includes(name)) {
             for (const arg of callNode.arguments) {
               permissivelyTrackNode(arg)
             }
@@ -853,7 +918,8 @@ export const reactivityRule: Rule = {
                   !reference.init &&
                   reference.isReadOnly() &&
                   reference.identifier.parent?.type === 'CallExpression' &&
-                  (reference.identifier.parent as ESTree.CallExpression).callee === reference.identifier
+                  (reference.identifier.parent as ESTree.CallExpression).callee ===
+                    reference.identifier
                 ) {
                   const arg0 = (reference.identifier.parent as ESTree.CallExpression).arguments[0]
                   if (arg0) pushTrackedScope(arg0, 'function')
@@ -872,7 +938,9 @@ export const reactivityRule: Rule = {
           !(ae.left as ESTree.MemberExpression).computed &&
           (ae.left as ESTree.MemberExpression).property.type === 'Identifier' &&
           isFunctionNode(ae.right) &&
-          /^on[a-z]+$/.test(((ae.left as ESTree.StaticMemberExpression).property as ESTree.IdentifierName).name)
+          /^on[a-z]+$/.test(
+            ((ae.left as ESTree.StaticMemberExpression).property as ESTree.IdentifierName).name,
+          )
         ) {
           pushTrackedScope(ae.right, 'called-function')
         }
@@ -882,8 +950,14 @@ export const reactivityRule: Rule = {
           if (isFunctionNode(expression)) {
             pushTrackedScope(expression, 'called-function')
             for (const param of (expression as FunctionNode).params) {
-              if (param.type === 'Identifier' && isPropsByName((param as ESTree.IdentifierReference).name)) {
-                const variable = findVariable(context, param as ESTree.IdentifierReference & { name: string })
+              if (
+                param.type === 'Identifier' &&
+                isPropsByName((param as ESTree.IdentifierReference).name)
+              ) {
+                const variable = findVariable(
+                  context,
+                  param as ESTree.IdentifierReference & { name: string },
+                )
                 if (variable) scopeStack.pushProps(variable, currentScope().node)
               }
             }
@@ -893,6 +967,11 @@ export const reactivityRule: Rule = {
     }
 
     return {
+      before() {
+        const options = (context.options as [{ customReactiveFunctions?: string[] }?])[0] ?? {}
+        customReactiveFunctions = options.customReactiveFunctions ?? []
+        sourceCode = context.sourceCode
+      },
       ImportDeclaration: handleImportDeclaration,
       JSXExpressionContainer(node: ESTree.Node) {
         checkForTrackedScopes(node as ESTree.JSXExpressionContainer)
@@ -943,14 +1022,20 @@ export const reactivityRule: Rule = {
               funcNode.params.length === 2 &&
               funcNode.params[1].type === 'Identifier'
             ) {
-              const index = findVariable(context, funcNode.params[1] as ESTree.IdentifierReference & { name: string })
+              const index = findVariable(
+                context,
+                funcNode.params[1] as ESTree.IdentifierReference & { name: string },
+              )
               if (index) scopeStack.pushSignal(index, currentScope().node)
             } else if (
               matchImport('Index', tagName) &&
               funcNode.params.length >= 1 &&
               funcNode.params[0].type === 'Identifier'
             ) {
-              const item = findVariable(context, funcNode.params[0] as ESTree.IdentifierReference & { name: string })
+              const item = findVariable(
+                context,
+                funcNode.params[0] as ESTree.IdentifierReference & { name: string },
+              )
               if (item) scopeStack.pushSignal(item, currentScope().node)
             }
           }

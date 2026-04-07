@@ -10,7 +10,7 @@ export const jsxUsesVarsRule: Rule = {
     schema: [],
     messages: {},
   },
-  create(context) {
+  createOnce(context) {
     return {
       JSXOpeningElement(node) {
         switch (node.name.type) {
@@ -28,10 +28,7 @@ export const jsxUsesVarsRule: Rule = {
               parent = (parent as ESTree.JSXMemberExpression).object
             }
             if (parent.type === 'JSXIdentifier') {
-              context.sourceCode.markVariableAsUsed(
-                (parent as ESTree.JSXIdentifier).name,
-                parent,
-              )
+              context.sourceCode.markVariableAsUsed((parent as ESTree.JSXIdentifier).name, parent)
             }
             break
           }

@@ -19,8 +19,8 @@ export const preferShowRule: Rule = {
         "Use Solid's `<Show />` component for conditionally showing content with a fallback.",
     },
   },
-  create(context) {
-    const sourceCode = context.sourceCode
+  createOnce(context) {
+    let sourceCode: typeof context.sourceCode
     const putIntoJSX = (node: ESTree.Node): string => {
       const text = sourceCode.getText(node)
       return isJSXElementOrFragment(node) ? text : `{${text}}`
@@ -81,6 +81,9 @@ export const preferShowRule: Rule = {
     }
 
     return {
+      before() {
+        sourceCode = context.sourceCode
+      },
       JSXExpressionContainer(node) {
         if (!isJSXElementOrFragment(node.parent)) {
           return

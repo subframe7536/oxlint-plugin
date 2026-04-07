@@ -5,7 +5,8 @@ export const preferForRule: Rule = {
   meta: {
     type: 'problem',
     docs: {
-      description: "Enforce using Solid's `<For />` component for mapping an array to JSX elements.",
+      description:
+        "Enforce using Solid's `<For />` component for mapping an array to JSX elements.",
       url: 'https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/prefer-for.md',
     },
     fixable: 'code',
@@ -17,7 +18,7 @@ export const preferForRule: Rule = {
         "Use Solid's `<For />` component or `<Index />` component for rendering lists. Array#map causes DOM elements to be recreated.",
     },
   },
-  create(context) {
+  createOnce(context) {
     return {
       CallExpression(node) {
         const callOrChain = node.parent?.type === 'ChainExpression' ? node.parent : node
@@ -30,7 +31,8 @@ export const preferForRule: Rule = {
             callee.type === 'MemberExpression' &&
             !(callee as ESTree.MemberExpression).computed &&
             (callee as ESTree.MemberExpression).property.type === 'Identifier' &&
-            ((callee as ESTree.StaticMemberExpression).property as ESTree.IdentifierName).name === 'map' &&
+            ((callee as ESTree.StaticMemberExpression).property as ESTree.IdentifierName).name ===
+              'map' &&
             node.arguments.length === 1 &&
             isFunctionNode(node.arguments[0])
           ) {
@@ -43,7 +45,10 @@ export const preferForRule: Rule = {
                 messageId: 'preferFor',
                 fix: (fixer) => {
                   const beforeArray: [number, number] = [jsxContainer.range[0], arrayNode.range[0]]
-                  const betweenArrayAndMapFn: [number, number] = [arrayNode.range[1], mapFnNode.range[0]]
+                  const betweenArrayAndMapFn: [number, number] = [
+                    arrayNode.range[1],
+                    mapFnNode.range[0],
+                  ]
                   const afterMapFn: [number, number] = [mapFnNode.range[1], jsxContainer.range[1]]
                   return [
                     fixer.replaceTextRange(beforeArray, '<For each={'),
@@ -60,7 +65,9 @@ export const preferForRule: Rule = {
             (callee as ESTree.MemberExpression).computed &&
             (() => {
               const prop = (callee as ESTree.ComputedMemberExpression).property
-              return prop.type === 'Literal' && ((prop as { value: unknown }).value as string) === 'map'
+              return (
+                prop.type === 'Literal' && ((prop as { value: unknown }).value as string) === 'map'
+              )
             })() &&
             node.arguments.length === 1 &&
             isFunctionNode(node.arguments[0])

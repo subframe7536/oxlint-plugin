@@ -18,7 +18,7 @@ export const jsxNoScriptUrlRule: Rule = {
       noJSURL: "For security, don't use javascript: URLs. Use event handlers instead if you can.",
     },
   },
-  create(context) {
+  createOnce(context) {
     return {
       JSXAttribute(node) {
         if (node.name.type !== 'JSXIdentifier' || !node.value) return
@@ -26,7 +26,9 @@ export const jsxNoScriptUrlRule: Rule = {
         const valueNode =
           node.value.type === 'JSXExpressionContainer' ? node.value.expression : node.value
 
-        if (valueNode.type === 'JSXEmptyExpression') return
+        if (valueNode.type === 'JSXEmptyExpression') {
+          return
+        }
 
         const str = getStaticStringValue(valueNode)
         if (typeof str === 'string' && isJavaScriptProtocol.test(str)) {

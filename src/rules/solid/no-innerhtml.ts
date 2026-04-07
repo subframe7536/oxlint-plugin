@@ -1,20 +1,5 @@
 import type { Rule, ESTree } from '@oxlint/plugins'
-
-function jsxPropName(prop: ESTree.JSXAttribute): string {
-  if (prop.name.type === 'JSXNamespacedName') {
-    const ns = prop.name as ESTree.JSXNamespacedName
-    return `${ns.namespace.name}:${ns.name.name}`
-  }
-  return (prop.name as ESTree.JSXIdentifier).name
-}
-
-function getStaticString(node: ESTree.Node): string | null {
-  if (node.type === 'Literal') {
-    const v = (node as { value: unknown }).value
-    return typeof v === 'string' ? v : null
-  }
-  return null
-}
+import { jsxPropName, getStaticStringValue } from './utils.ts'
 
 export const noInnerHTMLRule: Rule = {
   meta: {
@@ -51,12 +36,13 @@ export const noInnerHTMLRule: Rule = {
         'The dangerouslySetInnerHTML prop is not supported; use innerHTML instead.',
     },
   },
-  create(context) {
-    const allowStatic = Boolean(
-      ((context.options as [{ allowStatic?: boolean }?])[0]?.allowStatic) ?? true,
-    )
+  createOnce(context) {
+    let allowStatic: boolean
 
     return {
+      before() {
+        allowStatic = (context.options as [{ allowStatic?: boolean }?])[0]?.allowStatic ?? true
+      },
       JSXAttribute(node) {
         const propName = jsxPropName(node)
 
@@ -71,7 +57,8 @@ export const noInnerHTMLRule: Rule = {
               props.length === 1 &&
               props[0]!.type === 'Property' &&
               (props[0] as ESTree.ObjectProperty).key.type === 'Identifier' &&
-              ((props[0] as ESTree.ObjectProperty).key as ESTree.IdentifierReference).name === '__html'
+              ((props[0] as ESTree.ObjectProperty).key as ESTree.IdentifierReference).name ===
+                '__html'
             ) {
               const htmlValue = (props[0] as ESTree.ObjectProperty).value as ESTree.Node
               context.report({
@@ -102,7 +89,7 @@ export const noInnerHTMLRule: Rule = {
             return
           }
 
-          const innerHtml = getStaticString(innerHtmlNode)
+          const innerHtml = getStaticStringValue(innerHtmlNode)
           if (typeof innerHtml === 'string') {
             const looksLikeHtml = /<[a-z][^>]*>/i.test(innerHtml)
             if (looksLikeHtml) {

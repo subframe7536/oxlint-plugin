@@ -28,10 +28,14 @@ export const jsxNoDuplicatePropsRule: Rule = {
       noDuplicateChildren: 'Using {{used}} at the same time is not allowed.',
     },
   },
-  create(context) {
+  createOnce(context) {
+    let ignoreCase: boolean
+
     return {
+      before() {
+        ignoreCase = (context.options as [{ ignoreCase?: boolean }?])[0]?.ignoreCase ?? false
+      },
       JSXOpeningElement(node) {
-        const ignoreCase = (context.options as [{ ignoreCase?: boolean }?])[0]?.ignoreCase ?? false
         const props = new Set<string>()
 
         const checkPropName = (name: string, propNode: ESTree.Node) => {

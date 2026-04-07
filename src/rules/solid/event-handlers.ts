@@ -2,17 +2,64 @@ import type { Rule, ESTree } from '@oxlint/plugins'
 import { isDOMElementName } from './utils.ts'
 
 const COMMON_EVENTS = [
-  'onAnimationEnd', 'onAnimationIteration', 'onAnimationStart', 'onBeforeInput',
-  'onBlur', 'onChange', 'onClick', 'onContextMenu', 'onCopy', 'onCut', 'onDblClick',
-  'onDrag', 'onDragEnd', 'onDragEnter', 'onDragExit', 'onDragLeave', 'onDragOver',
-  'onDragStart', 'onDrop', 'onError', 'onFocus', 'onFocusIn', 'onFocusOut',
-  'onGotPointerCapture', 'onInput', 'onInvalid', 'onKeyDown', 'onKeyPress', 'onKeyUp',
-  'onLoad', 'onLostPointerCapture', 'onMouseDown', 'onMouseEnter', 'onMouseLeave',
-  'onMouseMove', 'onMouseOut', 'onMouseOver', 'onMouseUp', 'onPaste', 'onPointerCancel',
-  'onPointerDown', 'onPointerEnter', 'onPointerLeave', 'onPointerMove', 'onPointerOut',
-  'onPointerOver', 'onPointerUp', 'onReset', 'onScroll', 'onSelect', 'onSubmit',
-  'onToggle', 'onTouchCancel', 'onTouchEnd', 'onTouchMove', 'onTouchStart',
-  'onTransitionEnd', 'onWheel',
+  'onAnimationEnd',
+  'onAnimationIteration',
+  'onAnimationStart',
+  'onBeforeInput',
+  'onBlur',
+  'onChange',
+  'onClick',
+  'onContextMenu',
+  'onCopy',
+  'onCut',
+  'onDblClick',
+  'onDrag',
+  'onDragEnd',
+  'onDragEnter',
+  'onDragExit',
+  'onDragLeave',
+  'onDragOver',
+  'onDragStart',
+  'onDrop',
+  'onError',
+  'onFocus',
+  'onFocusIn',
+  'onFocusOut',
+  'onGotPointerCapture',
+  'onInput',
+  'onInvalid',
+  'onKeyDown',
+  'onKeyPress',
+  'onKeyUp',
+  'onLoad',
+  'onLostPointerCapture',
+  'onMouseDown',
+  'onMouseEnter',
+  'onMouseLeave',
+  'onMouseMove',
+  'onMouseOut',
+  'onMouseOver',
+  'onMouseUp',
+  'onPaste',
+  'onPointerCancel',
+  'onPointerDown',
+  'onPointerEnter',
+  'onPointerLeave',
+  'onPointerMove',
+  'onPointerOut',
+  'onPointerOver',
+  'onPointerUp',
+  'onReset',
+  'onScroll',
+  'onSelect',
+  'onSubmit',
+  'onToggle',
+  'onTouchCancel',
+  'onTouchEnd',
+  'onTouchMove',
+  'onTouchStart',
+  'onTransitionEnd',
+  'onWheel',
 ] as const
 
 type CommonEvent = (typeof COMMON_EVENTS)[number]
@@ -78,12 +125,17 @@ export const eventHandlersRule: Rule = {
         "The {{name}} prop should be added as a JSX attribute, not spread in. Solid doesn't add listeners when spreading into JSX.",
     },
   },
-  create(context) {
-    const options = (context.options as [{ ignoreCase?: boolean; warnOnSpread?: boolean }?])[0] ?? {}
-    const ignoreCase = options.ignoreCase ?? false
-    const warnOnSpread = options.warnOnSpread ?? false
+  createOnce(context) {
+    let ignoreCase: boolean
+    let warnOnSpread: boolean
 
     return {
+      before() {
+        const options =
+          (context.options as [{ ignoreCase?: boolean; warnOnSpread?: boolean }?])[0] ?? {}
+        ignoreCase = options.ignoreCase ?? false
+        warnOnSpread = options.warnOnSpread ?? false
+      },
       JSXAttribute(node) {
         const openingElement = node.parent as ESTree.JSXOpeningElement
         if (

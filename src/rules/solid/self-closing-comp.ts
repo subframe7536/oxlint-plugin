@@ -63,22 +63,19 @@ export const selfClosingCompRule: Rule = {
       dontSelfClose: 'This element should not be self-closing.',
     },
   },
-  create(context) {
-    const options = (context.options as [{ component?: string; html?: string }?])[0]
+  createOnce(context) {
+    let component: string
+    let html: string
 
     function shouldBeSelfClosedWhenPossible(node: ESTree.JSXOpeningElement): boolean {
       if (isComponent(node)) {
-        return (options?.component ?? 'all') === 'all'
-      } else if (
-        node.name.type === 'JSXIdentifier' &&
-        isDOMElementName((node.name as ESTree.JSXIdentifier).name)
-      ) {
-        const whichHTML = options?.html ?? 'all'
-        switch (whichHTML) {
+        return component === 'all'
+      } else if (node.name.type === 'JSXIdentifier' && isDOMElementName(node.name.name)) {
+        switch (html) {
           case 'all':
             return true
           case 'void':
-            return isVoidDOMElementName((node.name as ESTree.JSXIdentifier).name)
+            return isVoidDOMElementName(node.name.name)
           case 'none':
             return false
         }
@@ -87,6 +84,11 @@ export const selfClosingCompRule: Rule = {
     }
 
     return {
+      before() {
+        const options = (context.options as [{ component?: string; html?: string }?])[0] || {}
+        component = options.component ?? 'all'
+        html = options.html ?? 'all'
+      },
       JSXOpeningElement(node) {
         const canSelfClose = childrenIsEmpty(node) || childrenIsMultilineSpaces(node)
         if (canSelfClose) {
@@ -113,17 +115,18 @@ export const selfClosingCompRule: Rule = {
                 const lastTokens = sourceCode.getLastTokens(node, { count: 2 })
                 const secondToLast = lastTokens[0]
                 // Find the start of the " />" or "/>" sequence, including any whitespace before it
-                const selfCloseStart = secondToLast?.value === '/'
-                  ? (() => {
-                    // Walk backwards to include any space before the slash
-                    let start = secondToLast.range[0]
-                    const text = sourceCode.getText(node)
-                    const slashIndex = start - node.range[0]
-                    let i = slashIndex - 1
-                    while (i >= 0 && /\s/.test(text[i]!)) i--
-                    return node.range[0] + i + 1
-                  })()
-                  : selfCloseEnding - 1
+                const selfCloseStart =
+                  secondToLast?.value === '/'
+                    ? (() => {
+                        // Walk backwards to include any space before the slash
+                        let start = secondToLast.range[0]
+                        const text = sourceCode.getText(node)
+                        const slashIndex = start - node.range[0]
+                        let i = slashIndex - 1
+                        while (i >= 0 && /\s/.test(text[i]!)) i--
+                        return node.range[0] + i + 1
+                      })()
+                    : selfCloseEnding - 1
                 const closeRange: [number, number] = [selfCloseStart, selfCloseEnding]
                 return fixer.replaceTextRange(closeRange, `></${tagName}>`)
               },

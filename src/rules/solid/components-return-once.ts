@@ -38,8 +38,8 @@ export const componentsReturnOnceRule: Rule = {
         'Solid components run once, so a conditional return breaks reactivity. Move the condition inside a JSX element, such as a fragment or <Show />.',
     },
   },
-  create(context) {
-    const functionStack: Array<{
+  createOnce(context) {
+    let functionStack: Array<{
       isComponent: boolean
       lastReturn: ReturnStatement | undefined
       earlyReturns: ReturnStatement[]
@@ -165,6 +165,9 @@ export const componentsReturnOnceRule: Rule = {
     }
 
     return {
+      before() {
+        functionStack = []
+      },
       FunctionDeclaration: onFunctionEnter,
       FunctionExpression: onFunctionEnter,
       ArrowFunctionExpression: onFunctionEnter,
