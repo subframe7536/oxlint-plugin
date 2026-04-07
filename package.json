@@ -1,6 +1,6 @@
 {
   "name": "@subf/oxlint-plugin",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Custom oxlint plugin for TypeScript and SolidJS",
   "homepage": "https://github.com/subframe7536/oxlint-plugin#readme",
   "bugs": {
