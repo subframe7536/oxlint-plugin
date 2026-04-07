@@ -51,5 +51,19 @@ ruleTester.run('solid-self-closing-comp', rule, {
       errors: [{ messageId: 'selfClose' }],
       output: `<span />`,
     },
+    // When component:'none', components should not be self-closed
+    {
+      code: `<MyComp />`,
+      options: [{ component: 'none' }],
+      errors: [{ messageId: 'dontSelfClose' }],
+      output: `<MyComp></MyComp>`,
+    },
+    // When html:'none', void elements should not be self-closed
+    {
+      code: `<br />`,
+      options: [{ html: 'none' }],
+      errors: [{ messageId: 'dontSelfClose' }],
+      output: `<br></br>`,
+    },
   ],
 })

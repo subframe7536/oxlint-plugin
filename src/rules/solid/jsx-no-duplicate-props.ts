@@ -31,18 +31,18 @@ export const jsxNoDuplicatePropsRule: Rule = {
   create(context) {
     return {
       JSXOpeningElement(node) {
-        const ignoreCase =
-          ((context.options as [{ ignoreCase?: boolean }?])[0]?.ignoreCase) ?? false
+        const ignoreCase = (context.options as [{ ignoreCase?: boolean }?])[0]?.ignoreCase ?? false
         const props = new Set<string>()
 
         const checkPropName = (name: string, propNode: ESTree.Node) => {
-          let normalizedName = name
-          if (ignoreCase || name.startsWith('on')) {
-            normalizedName = name
-              .toLowerCase()
-              .replace(/^on(?:capture)?:/, 'on')
-              .replace(/^(?:attr|prop):/, '')
+          // Normalize attr/prop namespace prefixes first (attr:class -> class)
+          let normalizedName = name.replace(/^(?:attr|prop):/, '')
+
+          // Normalize event handler names and case when requested
+          if (ignoreCase || normalizedName.startsWith('on')) {
+            normalizedName = normalizedName.toLowerCase().replace(/^on(?:capture)?:/, 'on')
           }
+
           if (props.has(normalizedName)) {
             context.report({
               node: propNode,

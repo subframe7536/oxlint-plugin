@@ -37,5 +37,11 @@ ruleTester.run('solid-imports', rule, {
       errors: [{ messageId: 'prefer-source' }],
       output: `import { createStore } from "solid-js/store";\n`,
     },
+    // Type import should also be moved to the correct source
+    {
+      code: `import type { Signal } from 'solid-js/web'`,
+      errors: [{ messageId: 'prefer-source' }],
+      output: `import type { Signal } from "solid-js";\n`,
+    },
   ],
 })

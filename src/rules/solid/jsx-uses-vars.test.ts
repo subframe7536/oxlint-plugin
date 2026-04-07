@@ -29,6 +29,10 @@ function App() {
 }
       `,
     },
+    // Namespace import used as JSX member expression
+    {
+      code: `import * as NS from './ns'; function App() { return <NS.Component /> }`,
+    },
   ],
   invalid: [],
 })

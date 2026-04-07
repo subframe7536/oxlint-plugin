@@ -41,5 +41,10 @@ ruleTester.run('solid-jsx-no-script-url', rule, {
       code: `<a href=" javascript:alert(1)">link</a>`,
       errors: [{ messageId: 'noJSURL' }],
     },
+    // Literal inside expression container should also be detected
+    {
+      code: `<a href={"javascript:alert(1)"}>link</a>`,
+      errors: [{ messageId: 'noJSURL' }],
+    },
   ],
 })

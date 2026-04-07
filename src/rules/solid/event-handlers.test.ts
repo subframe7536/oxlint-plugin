@@ -21,6 +21,10 @@ ruleTester.run('solid-event-handlers', rule, {
     // Custom component - lowercase on* props are fine
     { code: `<MyComp onclick={handler} />` },
     { code: `<MyComp ondoubleclick={handler} />` },
+    // When ignoreCase is enabled, ambiguous on* names shouldn't error
+    { code: `<div oncustom={handler} />`, options: [{ ignoreCase: true }] },
+    // Spreading event handlers is allowed by default
+    { code: `<div {...{ onClick: handler }} />` },
   ],
   invalid: [
     // Incorrect lowercase on HTML elements - should be capitalized
@@ -28,6 +32,17 @@ ruleTester.run('solid-event-handlers', rule, {
       code: `<div onclick={handler} />`,
       errors: [{ messageId: 'capitalization' }],
       output: `<div onClick={handler} />`,
+    },
+    // Ambiguous on* prop without ignoreCase should warn
+    {
+      code: `<div oncustom={handler} />`,
+      errors: [{ messageId: 'naming' }],
+    },
+    // When warnOnSpread is enabled, spreading event handlers should warn
+    {
+      code: `<div {...{ onClick: handler }} />`,
+      options: [{ warnOnSpread: true }],
+      errors: [{ messageId: 'spread-handler' }],
     },
     {
       code: `<div onchange={handler} />`,
@@ -49,6 +64,15 @@ ruleTester.run('solid-event-handlers', rule, {
       code: `<div onmouseenter={handler} />`,
       errors: [{ messageId: 'capitalization' }],
       output: `<div onMouseEnter={handler} />`,
+    },
+    // Static string/number value for an on* prop is treated as an attribute
+    {
+      code: `<div onClick="handler" />`,
+      errors: [{ messageId: 'detected-attr' }],
+    },
+    {
+      code: `<div onClick={123} />`,
+      errors: [{ messageId: 'detected-attr' }],
     },
   ],
 })

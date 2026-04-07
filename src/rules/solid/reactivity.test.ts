@@ -54,6 +54,18 @@ function App() {
 }
       `,
     },
+    // Custom reactive function listed in options should be treated as a tracked scope
+    {
+      code: `
+import { createSignal } from 'solid-js';
+function App() {
+  const [n] = createSignal(0);
+  const fn = myCustom(() => n());
+  return fn;
+}
+      `,
+      options: [{ customReactiveFunctions: ['myCustom'] }],
+    },
   ],
   invalid: [
     // Reactive variable or props written to directly
@@ -97,6 +109,18 @@ import { createSignal } from 'solid-js';
 function App() {
   const [n] = createSignal(0);
   return () => n();
+}
+      `,
+      errors: [{ messageId: 'badUnnamedDerivedSignal' }],
+    },
+    // Without configuring customReactiveFunctions, custom wrappers aren't treated as tracked
+    {
+      code: `
+import { createSignal } from 'solid-js';
+function App() {
+  const [n] = createSignal(0);
+  const fn = myCustom(() => n());
+  return fn;
 }
       `,
       errors: [{ messageId: 'badUnnamedDerivedSignal' }],

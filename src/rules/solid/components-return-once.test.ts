@@ -83,5 +83,21 @@ function Comp(props) {
       `,
       errors: [{ messageId: 'noEarlyReturn' }, { messageId: 'noEarlyReturn' }],
     },
+    // Conditional return (ternary/conditional expression) as final return should be reported
+    {
+      code: `
+function App() {
+  const ready = true;
+  return ready ? <A/> : <B/>;
+}
+      `,
+      errors: [{ messageId: 'noConditionalReturn' }],
+      output: `
+function App() {
+  const ready = true;
+  return <>{ready ? <A/> : <B/>}</>;
+}
+      `,
+    },
   ],
 })

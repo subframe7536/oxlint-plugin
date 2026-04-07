@@ -129,6 +129,12 @@ interface EdgeCases {
 }
 `,
   },
+  // Methods inside module declarations should be reported but not auto-fixed
+  {
+    code: `declare module 'M' { interface Foo { bar(): void } }`,
+    options: ['property'],
+    errors: [{ messageId: 'errorMethod' }],
+  },
 ]
 
 ruleTester.run('method-signature-style', rule, {

@@ -36,5 +36,11 @@ ruleTester.run('solid-prefer-show', rule, {
       errors: [{ messageId: 'preferShowTernary' }],
       output: `<><Show when={cond()} fallback={<B/>}><A/></Show></>`,
     },
+    // arrow function with logical expression body inside JSX should be reported
+    {
+      code: `<>{() => cond() && <div/>}</>`,
+      errors: [{ messageId: 'preferShowAnd' }],
+      output: `<><Show when={cond()}><div/></Show></>`,
+    },
   ],
 })

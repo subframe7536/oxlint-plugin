@@ -26,11 +26,23 @@ ruleTester.run('solid-no-innerhtml', rule, {
       code: `<div innerHTML={userInput} />`,
       errors: [{ messageId: 'dangerous' }],
     },
+    // Static HTML with existing children should conflict
+    {
+      code: `<div innerHTML="<p>hi</p>">child</div>`,
+      options: [{ allowStatic: true }],
+      errors: [{ messageId: 'conflict' }],
+    },
     // Static innerHTML is flagged when allowStatic is explicitly set to false
     {
       code: `<div innerHTML="<p>safe</p>" />`,
       options: [{ allowStatic: false }],
       errors: [{ messageId: 'dangerous' }],
+    },
+    // Static string that is not HTML should suggest using innerText
+    {
+      code: `<div innerHTML="plain text" />`,
+      options: [{ allowStatic: true }],
+      errors: [{ messageId: 'notHtml' }],
     },
     // React-style dangerouslySetInnerHTML is also flagged and auto-fixed
     {

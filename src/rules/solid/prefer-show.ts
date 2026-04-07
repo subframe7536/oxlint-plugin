@@ -28,15 +28,25 @@ export const preferShowRule: Rule = {
 
     const logicalExpressionHandler = (node: ESTree.LogicalExpression) => {
       if (node.operator === '&&' && EXPENSIVE_TYPES.includes(node.right.type)) {
+        // Determine the best AST node to replace: either the JSXExpressionContainer
+        // or (when inside an arrow function) the parent JSXExpressionContainer that
+        // wraps the ArrowFunctionExpression.
+        const replaceTarget =
+          node.parent?.type === 'JSXExpressionContainer' &&
+          isJSXElementOrFragment(node.parent.parent)
+            ? node.parent
+            : node.parent?.type === 'ArrowFunctionExpression' &&
+                node.parent.parent?.type === 'JSXExpressionContainer' &&
+                isJSXElementOrFragment(node.parent.parent.parent)
+              ? node.parent.parent
+              : node
+
         context.report({
           node,
           messageId: 'preferShowAnd',
           fix: (fixer) =>
             fixer.replaceText(
-              node.parent?.type === 'JSXExpressionContainer' &&
-                isJSXElementOrFragment(node.parent.parent)
-                ? node.parent
-                : node,
+              replaceTarget,
               `<Show when={${sourceCode.getText(node.left)}}>${putIntoJSX(node.right)}</Show>`,
             ),
         })
@@ -48,18 +58,23 @@ export const preferShowRule: Rule = {
         EXPENSIVE_TYPES.includes(node.consequent.type) ||
         EXPENSIVE_TYPES.includes(node.alternate.type)
       ) {
+        const replaceTarget =
+          node.parent?.type === 'JSXExpressionContainer' &&
+          isJSXElementOrFragment(node.parent.parent)
+            ? node.parent
+            : node.parent?.type === 'ArrowFunctionExpression' &&
+                node.parent.parent?.type === 'JSXExpressionContainer' &&
+                isJSXElementOrFragment(node.parent.parent.parent)
+              ? node.parent.parent
+              : node
+
         context.report({
           node,
           messageId: 'preferShowTernary',
           fix: (fixer) =>
             fixer.replaceText(
-              node.parent?.type === 'JSXExpressionContainer' &&
-                isJSXElementOrFragment(node.parent.parent)
-                ? node.parent
-                : node,
-              `<Show when={${sourceCode.getText(node.test)}} fallback={${sourceCode.getText(
-                node.alternate,
-              )}}>${putIntoJSX(node.consequent)}</Show>`,
+              replaceTarget,
+              `<Show when={${sourceCode.getText(node.test)}} fallback={${sourceCode.getText(node.alternate)}}>${putIntoJSX(node.consequent)}</Show>`,
             ),
         })
       }

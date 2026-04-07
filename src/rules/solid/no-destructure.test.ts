@@ -32,5 +32,12 @@ ruleTester.run('solid-no-destructure', rule, {
       errors: [{ messageId: 'noDestructure' }],
       output: `function App(props) { return <div>{props.a}{props.b}</div> }`,
     },
+    // Destructuring with default should be flagged (requires mergeProps/merge handling)
+    {
+      code: `function App({ name = 'guest' }) { return <div>{name}</div> }`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `function App(_props) {   const props = mergeProps({ name: 'guest' }, _props);
+return <div>{props.name}</div> }`,
+    },
   ],
 })

@@ -30,5 +30,10 @@ ruleTester.run('solid-prefer-for', rule, {
       errors: [{ messageId: 'preferFor' }],
       output: `<div><For each={list()}>{x => <span key={x.id}>{x.name}</span>}</For></div>`,
     },
+    // .map with two params should suggest using Index or For/Index combos
+    {
+      code: `<>{items().map((item, i) => <div>{i}: {item}</div>)}</>`,
+      errors: [{ messageId: 'preferForOrIndex' }],
+    },
   ],
 })
