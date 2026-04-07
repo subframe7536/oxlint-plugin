@@ -516,10 +516,17 @@ export const reactivityRule: Rule = {
       if (unnamedDerivedSignals) {
         for (const signalNode of unnamedDerivedSignals) {
           if (!currentScope().trackedScopes.find((ts) => matchTrackedScope(ts, signalNode))) {
-            context.report({
-              loc: getFunctionHeadLoc(signalNode),
-              messageId: 'badUnnamedDerivedSignal',
-            })
+            // Check if this function is a property value in an object literal
+            // Object properties (e.g., { create: () => value() }) are valid places to read reactivity
+            const isObjectProperty =
+              signalNode.parent?.type === 'Property' && signalNode.parent.value === signalNode
+
+            if (!isObjectProperty) {
+              context.report({
+                loc: getFunctionHeadLoc(signalNode),
+                messageId: 'badUnnamedDerivedSignal',
+              })
+            }
           }
         }
       }

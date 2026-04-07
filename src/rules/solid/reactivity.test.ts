@@ -66,6 +66,69 @@ function App() {
       `,
       options: [{ customReactiveFunctions: ['myCustom'] }],
     },
+    // Object getters that read reactive values are valid (e.g. context value objects)
+    {
+      code: `
+import { createSignal } from 'solid-js';
+function App() {
+  const [error] = createSignal('required');
+  const [name] = createSignal('field-name');
+  const fieldContextValue = {
+    get error() {
+      return error();
+    },
+    get name() {
+      return name();
+    },
+  };
+  return fieldContextValue;
+}
+      `,
+    },
+    // Object function properties that read reactive values are valid
+    {
+      code: `
+import { createSignal } from 'solid-js';
+function App() {
+  const [disabled] = createSignal(false);
+  const [startIntersection] = createSignal<HTMLElement | null>(null);
+  const api = {
+    startIntersectionVisible: () => !disabled() && startIntersection() !== null,
+  };
+  return api;
+}
+      `,
+    },
+    // Event-like callbacks stored in objects should be valid
+    {
+      code: `
+import { createSignal } from 'solid-js';
+function App() {
+  const [kind] = createSignal('increment');
+  const onControlClick = (nextKind: string) => nextKind;
+  const handlers = {
+    onClick: (event: MouseEvent) => onControlClick(kind()),
+    onPointerDown: (event: PointerEvent) => onControlClick(kind()),
+  };
+  return handlers;
+}
+      `,
+    },
+    // Named callbacks in objects are valid even when reading reactivity
+    {
+      code: `
+import { createSignal } from 'solid-js';
+function App() {
+  const [value] = createSignal('');
+  const createTag = (next?: string) => Boolean(next ?? value());
+  const actions = {
+    create: (next?: string): boolean => createTag(next),
+    close: () => value(),
+  };
+  return actions;
+}
+      `,
+    },
   ],
   invalid: [
     // Reactive variable or props written to directly
