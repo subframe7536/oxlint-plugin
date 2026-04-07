@@ -29,7 +29,7 @@ export const solidConfig: OxlintOverride = {
     'subf/solid-no-innerhtml': 'warn',
     'subf/solid-prefer-for': 'warn',
     'subf/solid-prefer-show': 'warn',
-    'subf/solid-reactivity': 'error',
+    'subf/solid-reactivity': 'warn',
     'subf/solid-self-closing-comp': 'warn',
   },
 }
