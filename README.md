@@ -35,6 +35,14 @@ Port of [`eslint-plugin-de-morgan`](https://github.com/azat-io/eslint-plugin-de-
 | `no-negated-conjunction` | Transform the negation of a conjunction according to De Morgan's law. | ✅      |
 | `no-negated-disjunction` | Transform the negation of a disjunction according to De Morgan's law. | ✅      |
 
+## Antfu Rules
+
+Port of [`eslint-plugin-antfu`](https://github.com/antfu/eslint-plugin-antfu) rules.
+
+| Name                 | Description                                                           | Fixable |
+| -------------------- | --------------------------------------------------------------------- | ------- |
+| `top-level-function` | Enforce top-level functions to use the `function` declaration syntax. | ✅      |
+
 ## Solid Rules
 
 Port of [`eslint-plugin-solid`](https://github.com/solidjs-community/eslint-plugin-solid) rules.

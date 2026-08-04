@@ -2,6 +2,7 @@ import type { Plugin } from '@oxlint/plugins'
 
 import { methodSignatureStyleRule } from './rules/method-signature-style.ts'
 import { noNegatedConjunctionRule, noNegatedDisjunctionRule } from './rules/de-morgan.ts'
+import { topLevelFunctionRule } from './rules/top-level-function.ts'
 import { componentsReturnOnceRule } from './rules/solid/components-return-once.ts'
 import { eventHandlersRule } from './rules/solid/event-handlers.ts'
 import { importsRule } from './rules/solid/imports.ts'
@@ -24,6 +25,7 @@ const plugin: Plugin = {
     'method-signature-style': methodSignatureStyleRule,
     'no-negated-conjunction': noNegatedConjunctionRule,
     'no-negated-disjunction': noNegatedDisjunctionRule,
+    'top-level-function': topLevelFunctionRule,
     'solid-components-return-once': componentsReturnOnceRule,
     'solid-event-handlers': eventHandlersRule,
     'solid-imports': importsRule,
