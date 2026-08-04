@@ -22,7 +22,7 @@ export default defineConfig({
 
 | Name                     | Description                                                                                                   | Fixable |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------- | ------- |
-| `method-signature-style` | Enforce type's method signature style to be consistent. Port from `@typescript-eslint/method-signature-style` | ✅       |
+| `method-signature-style` | Enforce type's method signature style to be consistent. Port from `@typescript-eslint/method-signature-style` | ✅      |
 
 ## Solid Rules
 
@@ -32,19 +32,19 @@ Rules excluded from the port: `no-array-handlers`, `no-proxy-apis`, `no-react-de
 
 | Name                           | Description                                                                                       | Fixable |
 | ------------------------------ | ------------------------------------------------------------------------------------------------- | ------- |
-| `solid-components-return-once` | Disallow early returns in components. Conditionals should be inside JSX.                          | ✅       |
-| `solid-event-handlers`         | Enforce naming DOM element event handlers consistently (e.g. `onClick` not `onclick`).            | ✅       |
-| `solid-imports`                | Enforce consistent imports from `"solid-js"`, `"solid-js/web"`, and `"solid-js/store"`.           | ✅       |
+| `solid-components-return-once` | Disallow early returns in components. Conditionals should be inside JSX.                          | ✅      |
+| `solid-event-handlers`         | Enforce naming DOM element event handlers consistently (e.g. `onClick` not `onclick`).            | ✅      |
+| `solid-imports`                | Enforce consistent imports from `"solid-js"`, `"solid-js/web"`, and `"solid-js/store"`.           | ✅      |
 | `solid-jsx-no-duplicate-props` | Disallow passing the same prop twice in JSX.                                                      |         |
 | `solid-jsx-no-script-url`      | Disallow `javascript:` URLs.                                                                      |         |
-| `solid-jsx-no-undef`           | Disallow references to undefined variables in JSX. Handles custom directives.                     | ✅       |
+| `solid-jsx-no-undef`           | Disallow references to undefined variables in JSX. Handles custom directives.                     | ✅      |
 | `solid-jsx-uses-vars`          | Prevent variables used in JSX from being marked as unused.                                        |         |
-| `solid-no-destructure`         | Disallow destructuring props — use `props.x` instead to preserve reactivity.                      | ✅       |
-| `solid-no-innerhtml`           | Disallow usage of the `innerHTML` attribute to prevent XSS vulnerabilities.                       | ✅       |
-| `solid-prefer-for`             | Enforce using Solid's `<For />` component for mapping an array to JSX elements.                   | ✅       |
-| `solid-prefer-show`            | Enforce using Solid's `<Show />` component for conditionally showing content.                     | ✅       |
+| `solid-no-destructure`         | Disallow destructuring props — use `props.x` instead to preserve reactivity.                      | ✅      |
+| `solid-no-innerhtml`           | Disallow usage of the `innerHTML` attribute to prevent XSS vulnerabilities.                       | ✅      |
+| `solid-prefer-for`             | Enforce using Solid's `<For />` component for mapping an array to JSX elements.                   | ✅      |
+| `solid-prefer-show`            | Enforce using Solid's `<Show />` component for conditionally showing content.                     | ✅      |
 | `solid-reactivity`             | Enforce that reactivity (props, signals, memos) is properly used so the view updates as expected. |         |
-| `solid-self-closing-comp`      | Disallow extra closing tags for components without children.                                      | ✅       |
+| `solid-self-closing-comp`      | Disallow extra closing tags for components without children.                                      | ✅      |
 
 ## Note
 

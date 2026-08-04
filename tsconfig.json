@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "moduleDetection": "force",
-    "module": "preserve",
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "strict": true,
     "noUnusedLocals": true,

@@ -29,16 +29,16 @@
     "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "release": "bumpp --all",
-    "qa": "oxlint --fix && oxfmt",
+    "qa": "oxlint --fix && oxfmt && tsc --noEmit",
     "prepublishOnly": "bun run build",
     "test": "node --test"
   },
   "devDependencies": {
-    "@oxlint/plugins": "^1.58.0",
-    "bumpp": "^11.0.1",
-    "oxfmt": "^0.43.0",
-    "oxlint": "^1.58.0",
-    "tsdown": "^0.21.7",
-    "typescript": "^5.9.3"
+    "@oxlint/plugins": "^1.77.0",
+    "bumpp": "^11.1.0",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2"
   }
 }
