@@ -13,6 +13,8 @@ export default defineConfig({
   extends: [solidConfig],
   rules: {
     'subf/method-signature-style': 'warn',
+    'subf/no-negated-conjunction': 'warn',
+    'subf/no-negated-disjunction': 'warn',
     // ... other rules
   },
 })
@@ -23,6 +25,15 @@ export default defineConfig({
 | Name                     | Description                                                                                                   | Fixable |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------- | ------- |
 | `method-signature-style` | Enforce type's method signature style to be consistent. Port from `@typescript-eslint/method-signature-style` | ✅      |
+
+## De Morgan Rules
+
+Port of [`eslint-plugin-de-morgan`](https://github.com/azat-io/eslint-plugin-de-morgan) rules.
+
+| Name                     | Description                                                           | Fixable |
+| ------------------------ | --------------------------------------------------------------------- | ------- |
+| `no-negated-conjunction` | Transform the negation of a conjunction according to De Morgan's law. | ✅      |
+| `no-negated-disjunction` | Transform the negation of a disjunction according to De Morgan's law. | ✅      |
 
 ## Solid Rules
 
