@@ -10,7 +10,6 @@ const ruleTester = new RuleTester({
 
 ruleTester.run('solid-reactivity', rule, {
   valid: [
-    // Signal called correctly in JSX
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -20,7 +19,6 @@ function App() {
 }
       `,
     },
-    // Signal used in event handler (reactive context via callback)
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -30,7 +28,6 @@ function App() {
 }
       `,
     },
-    // createMemo is a tracked reactive scope
     {
       code: `
 import { createSignal, createMemo } from 'solid-js';
@@ -41,7 +38,6 @@ function App() {
 }
       `,
     },
-    // createEffect is a tracked reactive scope
     {
       code: `
 import { createSignal, createEffect } from 'solid-js';
@@ -54,7 +50,6 @@ function App() {
 }
       `,
     },
-    // Custom reactive function listed in options should be treated as a tracked scope
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -66,7 +61,6 @@ function App() {
       `,
       options: [{ customReactiveFunctions: ['myCustom'] }],
     },
-    // Object getters that read reactive values are valid (e.g. context value objects)
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -85,7 +79,6 @@ function App() {
 }
       `,
     },
-    // Object function properties that read reactive values are valid
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -99,7 +92,6 @@ function App() {
 }
       `,
     },
-    // Event-like callbacks stored in objects should be valid
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -114,7 +106,6 @@ function App() {
 }
       `,
     },
-    // Named callbacks in objects are valid even when reading reactivity
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -131,7 +122,6 @@ function App() {
     },
   ],
   invalid: [
-    // Reactive variable or props written to directly
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -142,7 +132,6 @@ function App(props) {
       `,
       errors: [{ messageId: 'noWrite' }],
     },
-    // Reactive value called outside of a tracked scope
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -154,7 +143,6 @@ function App() {
       `,
       errors: [{ messageId: 'untrackedReactive' }],
     },
-    // Expression used where a function wrapper is expected (e.g., DOM event)
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -165,18 +153,32 @@ function App() {
       `,
       errors: [{ messageId: 'expectedFunctionGotExpression' }],
     },
-    // Function contains reactivity but isn't passed to a tracked scope
     {
       code: `
 import { createSignal } from 'solid-js';
 function App() {
   const [n] = createSignal(0);
-  return () => n();
+  () => n();
+  return <div />;
 }
       `,
       errors: [{ messageId: 'badUnnamedDerivedSignal' }],
     },
-    // Without configuring customReactiveFunctions, custom wrappers aren't treated as tracked
+    {
+      code: `
+import { createSignal, createMemo } from 'solid-js';
+function App() {
+  const [count] = createSignal(0);
+  const fn = createMemo(() => {
+    const doubled = count() * 2;
+    const onClick = () => console.log(doubled);
+    return onClick;
+  });
+  return <button onClick={() => fn()()} />;
+}
+      `,
+      errors: [{ messageId: 'staleCapture' }],
+    },
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -188,7 +190,6 @@ function App() {
       `,
       errors: [{ messageId: 'badUnnamedDerivedSignal' }],
     },
-    // Signal used as value instead of being called
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -199,7 +200,6 @@ function App() {
       `,
       errors: [{ messageId: 'badSignal' }],
     },
-    // createSignal used without array destructuring
     {
       code: `
 import { createSignal } from 'solid-js';
@@ -210,7 +210,6 @@ function App() {
       `,
       errors: [{ messageId: 'shouldDestructure' }],
     },
-    // createMemo called without assigning its result
     {
       code: `
 import { createMemo } from 'solid-js';
@@ -221,7 +220,6 @@ function App() {
       `,
       errors: [{ messageId: 'shouldAssign' }],
     },
-    // Async function passed into a tracked scope
     {
       code: `
 import { createEffect } from 'solid-js';
