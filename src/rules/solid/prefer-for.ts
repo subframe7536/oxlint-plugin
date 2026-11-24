@@ -24,8 +24,7 @@ export const preferForRule: Rule = {
     let v2 = false
 
     const reportPreferFor = (node: ESTree.CallExpression) => {
-      const callOrChain = node.parent?.type === 'ChainExpression' ? node.parent : node
-      const jsxExpressionContainerNode = callOrChain.parent as ESTree.JSXExpressionContainer
+      const jsxExpressionContainerNode = node.parent as ESTree.JSXExpressionContainer
       const arrayNode = (node.callee as ESTree.MemberExpression).object
       const mapFnNode = node.arguments[0]
       context.report({

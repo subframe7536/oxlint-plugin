@@ -1,13 +1,15 @@
-import type { Rule, ESTree } from '@oxlint/plugins'
-import { jsxPropName, getStaticStringValue } from './utils.ts'
+import { createOnceRule, getStringIfConstant, jsxPropName } from './utils.ts'
 
-export const noInnerHTMLRule: Rule = {
+const htmlTagRegex = /<\/?[a-z][\w:-]*(?:\s[^>]*)?\/?>/i
+const isHtml = (str: string) => htmlTagRegex.test(str)
+
+export const noInnerHTMLRule = createOnceRule({
   meta: {
     type: 'problem',
     docs: {
       description:
         'Disallow usage of the innerHTML attribute, which can often lead to security vulnerabilities.',
-      url: 'https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-innerhtml.md',
+      url: 'https://github.com/solidjs/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-innerhtml.md',
     },
     fixable: 'code',
     hasSuggestions: true,
@@ -36,89 +38,95 @@ export const noInnerHTMLRule: Rule = {
         'The dangerouslySetInnerHTML prop is not supported; use innerHTML instead.',
     },
   },
-  createOnce(context) {
-    let allowStatic: boolean
-
+  defaultOptions: [{ allowStatic: true }],
+  visitorKeys: ['JSXAttribute'],
+  create(context) {
+    const allowStatic = Boolean(
+      (context.options[0] as { allowStatic?: boolean } | undefined)?.allowStatic ?? true,
+    )
     return {
-      before() {
-        allowStatic = (context.options as [{ allowStatic?: boolean }?])[0]?.allowStatic ?? true
-      },
       JSXAttribute(node) {
-        const propName = jsxPropName(node)
-
-        if (propName === 'dangerouslySetInnerHTML') {
+        if (jsxPropName(node) === 'dangerouslySetInnerHTML') {
           if (
             node.value?.type === 'JSXExpressionContainer' &&
-            node.value.expression.type === 'ObjectExpression'
+            node.value.expression.type === 'ObjectExpression' &&
+            node.value.expression.properties.length === 1
           ) {
-            const objExpr = node.value.expression as ESTree.ObjectExpression
-            const props = objExpr.properties
+            const htmlProp = node.value.expression.properties[0]
             if (
-              props.length === 1 &&
-              props[0]!.type === 'Property' &&
-              (props[0] as ESTree.ObjectProperty).key.type === 'Identifier' &&
-              ((props[0] as ESTree.ObjectProperty).key as ESTree.IdentifierReference).name ===
-                '__html'
+              htmlProp.type === 'Property' &&
+              htmlProp.key.type === 'Identifier' &&
+              htmlProp.key.name === '__html'
             ) {
-              const htmlValue = (props[0] as ESTree.ObjectProperty).value as ESTree.Node
               context.report({
                 node,
                 messageId: 'dangerouslySetInnerHTML',
-                fix: (fixer) => [
-                  fixer.replaceTextRange([node.range[0], htmlValue.range[0]], 'innerHTML={'),
-                  fixer.replaceTextRange([htmlValue.range[1], node.range[1]], '}'),
-                ],
+                fix: (fixer) => {
+                  const propRange = node.range
+                  const valueRange = htmlProp.value.range
+                  return [
+                    fixer.replaceTextRange([propRange[0], valueRange[0]], 'innerHTML={'),
+                    fixer.replaceTextRange([valueRange[1], propRange[1]], '}'),
+                  ]
+                },
               })
             } else {
-              context.report({ node, messageId: 'dangerouslySetInnerHTML' })
+              context.report({
+                node,
+                messageId: 'dangerouslySetInnerHTML',
+              })
             }
           } else {
-            context.report({ node, messageId: 'dangerouslySetInnerHTML' })
+            context.report({
+              node,
+              messageId: 'dangerouslySetInnerHTML',
+            })
           }
           return
+        } else if (jsxPropName(node) !== 'innerHTML') {
+          return
         }
-
-        if (propName !== 'innerHTML') return
 
         if (allowStatic) {
           const innerHtmlNode =
             node.value?.type === 'JSXExpressionContainer' ? node.value.expression : node.value
-
-          if (!innerHtmlNode || innerHtmlNode.type === 'JSXEmptyExpression') {
-            context.report({ node, messageId: 'dangerous' })
-            return
-          }
-
-          const innerHtml = getStaticStringValue(innerHtmlNode)
+          const innerHtml = innerHtmlNode && getStringIfConstant(innerHtmlNode)
           if (typeof innerHtml === 'string') {
-            const looksLikeHtml = /<[a-z][^>]*>/i.test(innerHtml)
-            if (looksLikeHtml) {
+            if (isHtml(innerHtml)) {
               if (
                 node.parent?.parent?.type === 'JSXElement' &&
-                (node.parent.parent as ESTree.JSXElement).children?.length
+                node.parent.parent.children?.length
               ) {
-                context.report({ node: node.parent.parent, messageId: 'conflict' })
+                context.report({
+                  node: node.parent.parent,
+                  messageId: 'conflict',
+                })
               }
-              // Static valid HTML - allowed
             } else {
               context.report({
                 node,
                 messageId: 'notHtml',
                 suggest: [
                   {
-                    messageId: 'useInnerText',
                     fix: (fixer) => fixer.replaceText(node.name, 'innerText'),
+                    messageId: 'useInnerText',
                   },
                 ],
               })
             }
           } else {
-            context.report({ node, messageId: 'dangerous' })
+            context.report({
+              node,
+              messageId: 'dangerous',
+            })
           }
         } else {
-          context.report({ node, messageId: 'dangerous' })
+          context.report({
+            node,
+            messageId: 'dangerous',
+          })
         }
       },
     }
   },
-}
+})
