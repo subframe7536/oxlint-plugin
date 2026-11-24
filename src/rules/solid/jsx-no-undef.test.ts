@@ -1,65 +1,206 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run } from './test-utils.ts'
 import { jsxNoUndefRule as rule } from './jsx-no-undef.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-jsx-no-undef', rule, {
+// The bulk of the testing of this rule is done in eslint-plugin-react,
+// so we just test the custom directives part of it here.
+export const cases = run('jsx-no-undef', rule, {
   valid: [
-    // Imported component
-    { code: `import MyComp from './MyComp'; <MyComp />` },
-    // Built-in HTML elements are always defined
-    { code: `<div />` },
-    { code: `<span class="foo" />` },
-    // Component defined in the same file
-    { code: `function App() { return <div/> }` },
-    // Local component definition
+    `let X; let el = <div use:X={{}} />;`,
+    `(X => <div use:X={{}} />)()`,
+    `let X; let el = <div use:X />`,
+    `let X, el = <div use:X />`,
+    `let Component, X = <Component use:X />`,
+    // ESLint v9 makes tests with `globals:` fail
+    // {
+    //   code: `let el = <div use:X />`,
+    //   options: [{ allowGlobals: true }],
+    //   globals: { X: "readonly" },
+    // },
+    // {
+    //   code: `let el = <div use:X />`,
+    //   options: [{ allowGlobals: true }],
+    //   globals: { X: "readonly" },
+    // },
     {
-      code: `
-function MyComp() { return <div/> }
-function App() { return <MyComp /> }
-      `,
+      code: `let el = <Component />`,
+      options: [{ typescriptEnabled: true }],
     },
-    // When TypeScript checking is enabled, this rule defers to TypeScript
-    { code: `<MyComp />`, options: [{ typescriptEnabled: true }] },
   ],
   invalid: [
-    // Undefined component
     {
-      code: `<MyComp />`,
-      errors: [{ messageId: 'undefined' }],
+      code: `let el = <Component />;`,
+      errors: [{ messageId: 'undefined', data: { identifier: 'Component' } }],
     },
-    // Auto-import missing common components from "solid-js"
+    // custom directives
+    {
+      code: `let el = <div use:X />;`,
+      errors: [{ messageId: 'customDirectiveUndefined', data: { identifier: 'X' } }],
+    },
+    {
+      code: `let el = <div use:X />;`,
+      options: [{ typescriptEnabled: true }],
+      errors: [{ messageId: 'customDirectiveUndefined', data: { identifier: 'X' } }],
+    },
+    {
+      code: `let el = <div use:X={{}} />;`,
+      errors: [{ messageId: 'customDirectiveUndefined', data: { identifier: 'X' } }],
+    },
+    // {
+    //   code: `let el = <div use:X />;`,
+    //   globals: { X: true },
+    //   errors: [{ messageId: "customDirectiveUndefined", data: { identifier: "X" } }],
+    // },
+    {
+      code: `let el = <div use:X />;`,
+      options: [{ allowGlobals: true }],
+      errors: [{ messageId: 'customDirectiveUndefined', data: { identifier: 'X' } }],
+    },
+    // auto imports
+    {
+      // a namespace import can't take named specifiers; add a separate import (#261)
+      code: `import * as Solid from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `import * as Solid from "solid-js";
+import { For } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `import { For } from "solid-js";\nlet el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `let el = <Show when={item}>{item => item.name}</Show>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'Show'", source: 'solid-js' } }],
+      output: `import { Show } from "solid-js";\nlet el = <Show when={item}>{item => item.name}</Show>`,
+    },
     {
       code: `
-function App() {
-  const items = [1]
-  return <For each={items}>{item => <div>{item}</div>}</For>
-}
-      `,
-      errors: [{ messageId: 'autoImport' }],
-      output: `import { For } from "solid-js";
+render(
+  <Switch fallback={<div>Not Found</div>}>
+    <Match when={state.route === "home"} />
+  </Switch>
+)`,
+      errors: [
+        { messageId: 'autoImport', data: { imports: "'Switch' and 'Match'", source: 'solid-js' } },
+      ],
+      output: `import { Switch, Match } from "solid-js";
 
-function App() {
-  const items = [1]
-  return <For each={items}>{item => <div>{item}</div>}</For>
-}
-      `,
+render(
+  <Switch fallback={<div>Not Found</div>}>
+    <Match when={state.route === "home"} />
+  </Switch>
+)`,
     },
-    // When autoImport is disabled, missing components are reported as undefined
     {
       code: `
-function App() {
-  const items = [1]
-  return <For each={items}>{item => <div>{item}</div>}</For>
-}
-      `,
-      options: [{ autoImport: false }],
-      errors: [{ messageId: 'undefined' }],
+import X from "x";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import { For } from "solid-js";\nimport X from "x";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `
+import { Show } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import { Show, For } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `
+import { For, Switch } from "solid-js";
+render(
+  <Switch fallback={<div>Not Found</div>}>
+    <Match when={state.route === "home"} />
+  </Switch>
+)`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'Match'", source: 'solid-js' } }],
+      output: `
+import { For, Switch, Match } from "solid-js";
+render(
+  <Switch fallback={<div>Not Found</div>}>
+    <Match when={state.route === "home"} />
+  </Switch>
+)`,
+    },
+    {
+      code: `
+import X from "x";
+import { Show } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import X from "x";
+import { Show, For } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `
+import X from "x";
+import Solid from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import X from "x";
+import Solid, { For } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `
+import X from "x";
+import "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import X from "x";
+import { For } from "solid-js";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `
+// attached comment
+import X from "x";
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import { For } from "solid-js";
+// attached comment
+import X from "x";
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    {
+      code: `
+import X from "x"; // attached comment
+let el = <For each={items}>{item => item.name}</For>`,
+      errors: [{ messageId: 'autoImport', data: { imports: "'For'", source: 'solid-js' } }],
+      output: `
+import { For } from "solid-js";
+import X from "x"; // attached comment
+let el = <For each={items}>{item => item.name}</For>`,
+    },
+    // Solid 2.0: new control-flow components are auto-importable
+    {
+      code: `let el = <Repeat count={5}>{(i) => <div>{i}</div>}</Repeat>;`,
+      settings: { solid: { version: 2 } },
+      errors: [{ messageId: 'autoImport', data: { imports: "'Repeat'", source: 'solid-js' } }],
+      output: `import { Repeat } from "solid-js";\nlet el = <Repeat count={5}>{(i) => <div>{i}</div>}</Repeat>;`,
+    },
+    {
+      code: `let el = <Loading fallback={spinner}>{content}</Loading>;`,
+      settings: { solid: { version: 2 } },
+      errors: [{ messageId: 'autoImport', data: { imports: "'Loading'", source: 'solid-js' } }],
+      output: `import { Loading } from "solid-js";\nlet el = <Loading fallback={spinner}>{content}</Loading>;`,
+    },
+    {
+      // Index no longer exists in 2.0, so it isn't auto-imported; plain undefined
+      code: `let el = <Index each={items} />;`,
+      settings: { solid: { version: 2 } },
+      errors: [{ messageId: 'undefined', data: { identifier: 'Index' } }],
     },
   ],
 })
