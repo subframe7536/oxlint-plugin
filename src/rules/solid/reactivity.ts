@@ -55,6 +55,7 @@ class ScopeStackItem {
 class ScopeStack extends Array<ScopeStackItem> {
   currentScope = () => this[this.length - 1]
   parentScope = () => this[this.length - 2]
+  syncCallbacks = new Set<FunctionNode>()
 
   pushSignal(
     variable: Variable,
@@ -89,8 +90,6 @@ class ScopeStack extends Array<ScopeStackItem> {
       declarationScope,
     })
   }
-
-  syncCallbacks = new Set<FunctionNode>()
 
   *consumeSignalReferencesInScope() {
     yield* this.consumeReferencesInScope(this.signals)

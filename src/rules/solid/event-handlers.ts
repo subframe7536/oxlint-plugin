@@ -366,7 +366,7 @@ export const eventHandlersRule: Rule = {
             openingElement.name.type === 'JSXIdentifier' &&
             isDOMElementName(openingElement.name.name)
           ) {
-            if (node.key.type === 'Identifier' && /^on/.test(node.key.name)) {
+            if (node.key.type === 'Identifier' && node.key.name.startsWith('on')) {
               const handlerName = node.key.name
               const sourceCode = context.sourceCode
               context.report({

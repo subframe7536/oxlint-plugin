@@ -260,13 +260,7 @@ export const importsRule: Rule = {
         for (const specifier of node.specifiers) {
           if (specifier.type === 'ImportSpecifier') {
             const isType = specifier.importKind === 'type' || node.importKind === 'type'
-            const map = v2
-              ? isType
-                ? typeMapV2
-                : primitiveMapV2
-              : isType
-                ? typeMap
-                : primitiveMap
+            const map = v2 ? (isType ? typeMapV2 : primitiveMapV2) : isType ? typeMap : primitiveMap
             const importedName =
               specifier.imported.type === 'Identifier'
                 ? specifier.imported.name
