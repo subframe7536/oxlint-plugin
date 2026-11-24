@@ -22,15 +22,16 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
-    "release": "bumpp --all",
+    "release": "pnpm i && pnpm run test && pnpm run qa && bumpp --all",
     "qa": "oxlint --fix && oxfmt && tsc --noEmit",
-    "prepublishOnly": "bun run build",
+    "prepublishOnly": "pnpm run build",
     "test": "node --test \"src/**/*.test.ts\""
   },
   "devDependencies": {
@@ -44,5 +45,6 @@
   "dependencies": {
     "parse5": "^7.3.0",
     "validate-html-nesting": "^1.2.4"
-  }
+  },
+  "packageManager": "pnpm@12.18.0"
 }
