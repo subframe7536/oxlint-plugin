@@ -1,10 +1,11 @@
-import type { Rule, ESTree, Fix } from '@oxlint/plugins'
-import { appendImports, insertImports, removeSpecifier } from './utils.ts'
+import type { ESTree, Fix, Rule } from '@oxlint/plugins'
+import { appendImports, insertImports, isSolidV2, removeSpecifier } from './utils.ts'
 
 type Source = 'solid-js' | 'solid-js/web' | 'solid-js/store'
+type SourceV2 = 'solid-js' | '@solidjs/web'
 
 const primitiveMap = new Map<string, Source>()
-for (const p of [
+for (const primitive of [
   'createSignal',
   'createEffect',
   'createMemo',
@@ -45,9 +46,9 @@ for (const p of [
   'Suspense',
   'SuspenseList',
 ]) {
-  primitiveMap.set(p, 'solid-js')
+  primitiveMap.set(primitive, 'solid-js')
 }
-for (const p of [
+for (const primitive of [
   'Portal',
   'render',
   'hydrate',
@@ -59,9 +60,9 @@ for (const p of [
   'HydrationScript',
   'Dynamic',
 ]) {
-  primitiveMap.set(p, 'solid-js/web')
+  primitiveMap.set(primitive, 'solid-js/web')
 }
-for (const p of [
+for (const primitive of [
   'createStore',
   'produce',
   'reconcile',
@@ -69,11 +70,11 @@ for (const p of [
   'createMutable',
   'modifyMutable',
 ]) {
-  primitiveMap.set(p, 'solid-js/store')
+  primitiveMap.set(primitive, 'solid-js/store')
 }
 
 const typeMap = new Map<string, Source>()
-for (const t of [
+for (const type of [
   'Signal',
   'Accessor',
   'Setter',
@@ -94,42 +95,142 @@ for (const t of [
   'ComponentProps',
   'Ref',
   'MergeProps',
-  'SplitProps',
+  'SplitPrips',
   'Context',
   'JSX',
   'ResolvedChildren',
   'MatchProps',
 ]) {
-  typeMap.set(t, 'solid-js')
+  typeMap.set(type, 'solid-js')
 }
-for (const t of ['MountableElement']) {
-  typeMap.set(t, 'solid-js/web')
+for (const type of ['MountableElement']) {
+  typeMap.set(type, 'solid-js/web')
 }
-for (const t of ['StoreNode', 'Store', 'SetStoreFunction']) {
-  typeMap.set(t, 'solid-js/store')
+for (const type of ['StoreNode', 'Store', 'SetStoreFunction']) {
+  typeMap.set(type, 'solid-js/store')
 }
+
+const alternateSourceMap = new Map<string, Source>([
+  ['createStore', 'solid-js'],
+  ['reconcile', 'solid-js'],
+  ['Store', 'solid-js'],
+  ['StoreNode', 'solid-js'],
+  ['SetStoreFunction', 'solid-js'],
+])
+
+const primitiveMapV2 = new Map<string, SourceV2>()
+for (const primitive of [
+  'createSignal',
+  'createMemo',
+  'createDeferred',
+  'createStore',
+  'createEffect',
+  'createRenderEffect',
+  'createTrackedEffect',
+  'createProjection',
+  'createOptimistic',
+  'createOptimisticStore',
+  'createReaction',
+  'createRoot',
+  'createOwner',
+  'createContext',
+  'useContext',
+  'children',
+  'lazy',
+  'createUniqueId',
+  'createErrorBoundary',
+  'createLoadingBoundary',
+  'createRevealOrder',
+  'onCleanup',
+  'onSettled',
+  'onFlush',
+  'untrack',
+  'until',
+  'from',
+  'flush',
+  'merge',
+  'omit',
+  'mapArray',
+  'repeat',
+  'getOwner',
+  'getObserver',
+  'runWithOwner',
+  'isEqual',
+  'isPending',
+  'latest',
+  'action',
+  'reconcile',
+  'snapshot',
+  'resolve',
+  'refresh',
+  'flatten',
+  'deep',
+  'affects',
+  'dynamicComponent',
+  'isHydrating',
+  'DEV',
+  'For',
+  'Repeat',
+  'Show',
+  'Switch',
+  'Match',
+  'Errored',
+  'Loading',
+  'Reveal',
+  'Hydration',
+  'NoHydration',
+]) {
+  primitiveMapV2.set(primitive, 'solid-js')
+}
+for (const primitive of [
+  'Portal',
+  'Dynamic',
+  'render',
+  'hydrate',
+  'isServer',
+  'renderToString',
+  'renderToStream',
+  'generateHydrationScript',
+  'HydrationScript',
+  'dynamic',
+  'clientOnly',
+  'useHead',
+  'getRequestEvent',
+  'redirect',
+  'reload',
+  'respond',
+  'httpStatus',
+  'httpHeader',
+]) {
+  primitiveMapV2.set(primitive, '@solidjs/web')
+}
+
+const typeMapV2 = new Map<string, SourceV2>()
+for (const type of [
+  'Signal',
+  'Accessor',
+  'Setter',
+  'Component',
+  'Context',
+  'ResolvedChildren',
+  'Store',
+  'StoreNode',
+  'StoreSetter',
+  'StoreOptions',
+  'SignalOptions',
+  'MemoOptions',
+  'EffectOptions',
+  'Owner',
+]) {
+  typeMapV2.set(type, 'solid-js')
+}
+typeMapV2.set('JSX', '@solidjs/web')
 
 const sourceRegex = /^solid-js(?:\/web|\/store)?$/
 const isSource = (source: string): source is Source => sourceRegex.test(source)
 
-function getImportedName(specifier: ESTree.ImportSpecifier): string {
-  const imported = specifier.imported
-  if (imported.type === 'Identifier') {
-    return (imported as ESTree.IdentifierReference).name
-  }
-  if (imported.type === 'Literal') {
-    return ((imported as { value: unknown }).value as string) ?? ''
-  }
-  return ''
-}
-
-function getSourceValue(node: ESTree.Node): string {
-  if (node.type === 'Literal') {
-    const v = (node as { value: unknown }).value
-    return typeof v === 'string' ? v : ''
-  }
-  return ''
-}
+const sourceRegexV2 = /^(?:solid-js|@solidjs\/web)$/
+const isSourceV2 = (source: string): source is Source | '@solidjs/web' => sourceRegexV2.test(source)
 
 export const importsRule: Rule = {
   meta: {
@@ -137,7 +238,7 @@ export const importsRule: Rule = {
     docs: {
       description:
         'Enforce consistent imports from "solid-js", "solid-js/web", and "solid-js/store".',
-      url: 'https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/imports.md',
+      url: 'https://github.com/solidjs/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/imports.md',
     },
     fixable: 'code',
     schema: [],
@@ -146,60 +247,75 @@ export const importsRule: Rule = {
     },
   },
   createOnce(context) {
+    let v2 = false
+
     return {
+      before() {
+        v2 = isSolidV2(context)
+      },
       ImportDeclaration(node) {
-        const source = getSourceValue(node.source)
-        if (!isSource(source)) return
+        const source = node.source.value
+        if (v2 ? !isSourceV2(source) : !isSource(source)) return
 
         for (const specifier of node.specifiers) {
           if (specifier.type === 'ImportSpecifier') {
-            const importSpec = specifier as ESTree.ImportSpecifier
-            const isType =
-              (importSpec as { importKind?: string }).importKind === 'type' ||
-              (node as { importKind?: string }).importKind === 'type'
-            const map = isType ? typeMap : primitiveMap
-            const name = getImportedName(importSpec)
-            const correctSource = map.get(name)
-            if (correctSource != null && correctSource !== source) {
+            const isType = specifier.importKind === 'type' || node.importKind === 'type'
+            const map = v2
+              ? isType
+                ? typeMapV2
+                : primitiveMapV2
+              : isType
+                ? typeMap
+                : primitiveMap
+            const importedName =
+              specifier.imported.type === 'Identifier'
+                ? specifier.imported.name
+                : specifier.imported.value
+            const correctSource = map.get(importedName)
+            if (
+              correctSource != null &&
+              correctSource !== source &&
+              (v2 || alternateSourceMap.get(importedName) !== source)
+            ) {
               context.report({
-                node: importSpec,
+                node: specifier,
                 messageId: 'prefer-source',
-                data: { name, source: correctSource },
+                data: {
+                  name: importedName,
+                  source: correctSource,
+                },
                 fix(fixer) {
                   const sourceCode = context.sourceCode
-                  const program = sourceCode.ast as ESTree.Program
+                  const program = sourceCode.ast
                   const correctDeclaration = program.body.find(
-                    (n) =>
-                      n.type === 'ImportDeclaration' &&
-                      getSourceValue((n as ESTree.ImportDeclaration).source) === correctSource,
+                    (n) => n.type === 'ImportDeclaration' && n.source.value === correctSource,
                   ) as ESTree.ImportDeclaration | undefined
 
-                  const specifierText = sourceCode.getText(importSpec)
-                  const fixes: Fix[] = [removeSpecifier(fixer, sourceCode, importSpec)]
-
                   if (correctDeclaration) {
-                    const append = appendImports(fixer, sourceCode, correctDeclaration, [
-                      specifierText,
-                    ])
-                    if (append) fixes.push(append)
-                  } else {
-                    const firstSolidDeclaration = program.body.find(
-                      (n) =>
-                        n.type === 'ImportDeclaration' &&
-                        isSource(getSourceValue((n as ESTree.ImportDeclaration).source)),
-                    ) as ESTree.ImportDeclaration | undefined
-                    fixes.push(
-                      insertImports(
-                        fixer,
-                        sourceCode,
-                        correctSource,
-                        [specifierText],
-                        firstSolidDeclaration,
-                        isType,
-                      ),
-                    )
+                    return [
+                      removeSpecifier(fixer, sourceCode, specifier),
+                      appendImports(fixer, sourceCode, correctDeclaration, [
+                        sourceCode.getText(specifier),
+                      ]),
+                    ].filter(Boolean) as Fix[]
                   }
-                  return fixes
+
+                  const firstSolidDeclaration = program.body.find(
+                    (n) =>
+                      n.type === 'ImportDeclaration' &&
+                      (v2 ? isSourceV2(n.source.value) : isSource(n.source.value)),
+                  ) as ESTree.ImportDeclaration | undefined
+                  return [
+                    removeSpecifier(fixer, sourceCode, specifier),
+                    insertImports(
+                      fixer,
+                      sourceCode,
+                      correctSource,
+                      [sourceCode.getText(specifier)],
+                      firstSolidDeclaration,
+                      node.importKind === 'type',
+                    ),
+                  ]
                 },
               })
             }
