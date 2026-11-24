@@ -1,7 +1,17 @@
-import type { Rule, ESTree, Scope } from '@oxlint/plugins'
-import { isDOMElementName, formatList, appendImports, insertImports } from './utils.ts'
+import type { ESTree, Rule } from '@oxlint/plugins'
+import { appendImports, formatList, insertImports, isDOMElementName, isSolidV2 } from './utils.ts'
 
 const AUTO_COMPONENTS = ['Show', 'For', 'Index', 'Switch', 'Match']
+const AUTO_COMPONENTS_V2 = [
+  'For',
+  'Repeat',
+  'Show',
+  'Switch',
+  'Match',
+  'Errored',
+  'Loading',
+  'Reveal',
+]
 const SOURCE_MODULE = 'solid-js'
 
 export const jsxNoUndefRule: Rule = {
@@ -9,7 +19,7 @@ export const jsxNoUndefRule: Rule = {
     type: 'problem',
     docs: {
       description: 'Disallow references to undefined variables in JSX. Handles custom directives.',
-      url: 'https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/jsx-no-undef.md',
+      url: 'https://github.com/solidjs/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/jsx-no-undef.md',
     },
     fixable: 'code',
     schema: [
@@ -44,81 +54,92 @@ export const jsxNoUndefRule: Rule = {
     },
   },
   createOnce(context) {
-    let allowGlobals: boolean
-    let autoImport: boolean
-    let isTypeScriptEnabled: boolean
-    let missingComponentsSet = new Set<string>()
-
-    function isDefinedInScope(name: string, node: ESTree.Node): boolean {
-      let scope: Scope | null = context.sourceCode.getScope(node)
-      const sourceType = (context.sourceCode.ast as ESTree.Program).sourceType
-      const stopAt = !allowGlobals && sourceType === 'module' ? 'module' : 'global'
-
-      while (scope) {
-        if (scope.set.has(name)) return true
-        if (scope.type === stopAt || scope.type === 'global') break
-        scope = scope.upper
-      }
-      // Also check global scope
-      if (allowGlobals) {
-        let gs: Scope | null = context.sourceCode.getScope(node)
-        while (gs?.upper) gs = gs.upper
-        if (gs?.set.has(name)) return true
-      }
-      return false
-    }
+    let allowGlobals = false
+    let autoImport = true
+    let isTypeScriptEnabled = false
+    let autoComponents = AUTO_COMPONENTS
+    let missingComponentsSet: Set<string>
 
     function checkIdentifierInJSX(
-      node: ESTree.Node & { name: string },
-      opts: { isComponent?: boolean; isCustomDirective?: boolean } = {},
+      node: ESTree.IdentifierReference | ESTree.JSXIdentifier,
+      {
+        isComponent,
+        isCustomDirective,
+      }: { isComponent?: boolean; isCustomDirective?: boolean } = {},
     ) {
-      const name = node.name
-      if (name === 'this') return
+      let scope = context.sourceCode.getScope(node)
+      const sourceType = context.sourceCode.ast.sourceType
+      const scopeUpperBound = !allowGlobals && sourceType === 'module' ? 'module' : 'global'
+      const variables = [...scope.variables]
 
-      if (isDefinedInScope(name, node)) return
+      if (node.name === 'this') {
+        return
+      }
+
+      while (scope.type !== scopeUpperBound && scope.type !== 'global' && scope.upper) {
+        scope = scope.upper
+        variables.push(...scope.variables)
+      }
+      if (scope.childScopes.length) {
+        variables.push(...scope.childScopes[0].variables)
+        if (scope.childScopes[0].childScopes.length) {
+          variables.push(...scope.childScopes[0].childScopes[0].variables)
+        }
+      }
+
+      if (variables.find((variable) => variable.name === node.name)) {
+        return
+      }
 
       if (
-        opts.isComponent &&
+        isComponent &&
         autoImport &&
-        AUTO_COMPONENTS.includes(name) &&
-        !missingComponentsSet.has(name)
+        autoComponents.includes(node.name) &&
+        !missingComponentsSet.has(node.name)
       ) {
-        missingComponentsSet.add(name)
-      } else if (opts.isCustomDirective) {
+        missingComponentsSet.add(node.name)
+      } else if (isCustomDirective) {
         context.report({
           node,
           messageId: 'customDirectiveUndefined',
-          data: { identifier: name },
+          data: {
+            identifier: node.name,
+          },
         })
       } else if (!isTypeScriptEnabled) {
         context.report({
           node,
           messageId: 'undefined',
-          data: { identifier: name },
+          data: {
+            identifier: node.name,
+          },
         })
       }
     }
 
     return {
       before() {
-        const options =
+        const opts =
           (
             context.options as [
-              { allowGlobals?: boolean; autoImport?: boolean; typescriptEnabled?: boolean }?,
+              {
+                allowGlobals?: boolean
+                autoImport?: boolean
+                typescriptEnabled?: boolean
+              }?,
             ]
           )[0] ?? {}
-        allowGlobals = options.allowGlobals ?? false
-        autoImport = options.autoImport !== false
-        isTypeScriptEnabled = options.typescriptEnabled ?? false
+        allowGlobals = opts.allowGlobals ?? false
+        autoImport = opts.autoImport !== false
+        isTypeScriptEnabled = opts.typescriptEnabled ?? false
+        autoComponents = isSolidV2(context) ? AUTO_COMPONENTS_V2 : AUTO_COMPONENTS
         missingComponentsSet = new Set<string>()
       },
       JSXOpeningElement(node) {
         switch (node.name.type) {
           case 'JSXIdentifier':
-            if (!isDOMElementName((node.name as ESTree.JSXIdentifier).name)) {
-              checkIdentifierInJSX(node.name as ESTree.JSXIdentifier & { name: string }, {
-                isComponent: true,
-              })
+            if (!isDOMElementName(node.name.name)) {
+              checkIdentifierInJSX(node.name, { isComponent: true })
             }
             break
           case 'JSXMemberExpression': {
@@ -127,7 +148,7 @@ export const jsxNoUndefRule: Rule = {
               n = (n as ESTree.JSXMemberExpression).object
             }
             if (n.type === 'JSXIdentifier') {
-              checkIdentifierInJSX(n as ESTree.JSXIdentifier & { name: string })
+              checkIdentifierInJSX(n)
             }
             break
           }
@@ -135,36 +156,33 @@ export const jsxNoUndefRule: Rule = {
             break
         }
       },
-      'JSXAttribute > JSXNamespacedName': (node: ESTree.Node) => {
-        const nsNode = node as ESTree.JSXNamespacedName
+      'JSXAttribute > JSXNamespacedName'(node: ESTree.JSXNamespacedName) {
         if (
-          nsNode.namespace?.type === 'JSXIdentifier' &&
-          (nsNode.namespace as ESTree.JSXIdentifier).name === 'use' &&
-          nsNode.name?.type === 'JSXIdentifier'
+          node.namespace?.type === 'JSXIdentifier' &&
+          node.namespace.name === 'use' &&
+          node.name?.type === 'JSXIdentifier'
         ) {
-          checkIdentifierInJSX(nsNode.name as ESTree.JSXIdentifier & { name: string }, {
-            isCustomDirective: true,
-          })
+          checkIdentifierInJSX(node.name, { isCustomDirective: true })
         }
       },
-      'Program:exit': (programNode: ESTree.Node) => {
-        const program = programNode as ESTree.Program
+      'Program:exit'(programNode) {
         const missingComponents = Array.from(missingComponentsSet.values())
         if (autoImport && missingComponents.length) {
-          const importNode = program.body.find(
+          const importNode = programNode.body.find(
             (n) =>
               n.type === 'ImportDeclaration' &&
-              (n as { importKind?: string }).importKind !== 'type' &&
-              (n as ESTree.ImportDeclaration).source.type === 'Literal' &&
-              ((n as ESTree.ImportDeclaration).source as { value: unknown }).value ===
-                SOURCE_MODULE,
+              n.importKind !== 'type' &&
+              n.source.type === 'Literal' &&
+              n.source.value === SOURCE_MODULE,
           ) as ESTree.ImportDeclaration | undefined
-
           if (importNode) {
             context.report({
               node: importNode,
               messageId: 'autoImport',
-              data: { imports: formatList(missingComponents), source: SOURCE_MODULE },
+              data: {
+                imports: formatList(missingComponents),
+                source: SOURCE_MODULE,
+              },
               fix: (fixer) =>
                 appendImports(fixer, context.sourceCode, importNode, missingComponents),
             })
@@ -172,9 +190,12 @@ export const jsxNoUndefRule: Rule = {
             context.report({
               node: programNode,
               messageId: 'autoImport',
-              data: { imports: formatList(missingComponents), source: SOURCE_MODULE },
+              data: {
+                imports: formatList(missingComponents),
+                source: SOURCE_MODULE,
+              },
               fix: (fixer) =>
-                insertImports(fixer, context.sourceCode, 'solid-js', missingComponents),
+                insertImports(fixer, context.sourceCode, SOURCE_MODULE, missingComponents),
             })
           }
         }
