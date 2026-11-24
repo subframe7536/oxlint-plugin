@@ -1,54 +1,198 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run } from './test-utils.ts'
 import { noUnusedSignalRule as rule } from './no-unused-signal.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-no-unused-signal', rule, {
+export const cases = run('no-unused-signal', rule, {
   valid: [
-    {
-      code: `
-import { createSignal } from 'solid-js';
-function App() {
+    `import { createSignal } from "solid-js";
+const [count, setCount] = createSignal(0);
+console.log(count());
+setCount(1);`,
+    // passing either half along counts as a use
+    `import { createSignal } from "solid-js";
+function Counter() {
   const [count, setCount] = createSignal(0);
-  return <button onClick={() => setCount(c => c + 1)}>{count()}</button>;
-}
-      `,
-    },
-    {
-      code: `
-import { createSignal } from 'solid-js';
-function App(props: { value: number }) {
-  const [derived] = createSignal(() => props.value * 2);
-  return <div>{derived()}</div>;
-}
-      `,
-    },
+  return <Child value={count} onIncrement={setCount} />;
+}`,
+    // exported signals can be read or written by other modules
+    `import { createSignal } from "solid-js";
+export const [theme, setTheme] = createSignal("light");`,
+    // the whole tuple is the handle; nothing to prove here
+    `import { createSignal } from "solid-js";
+const tuple = createSignal(0);
+use(tuple);`,
+    // imports from unknown modules aren't Solid's primitives unless
+    // registered via settings.solid.moduleSources (#183)
+    `import { createSignal } from "my-solid-renderer";
+const [count, setCount] = createSignal(0);
+console.log(count());`,
+    // stores and optimistic tuples get the same conclusive treatment
+    `import { createStore } from "solid-js";
+const [store, setStore] = createStore({ n: 0 });
+console.log(store.n);
+setStore((draft) => draft.n++);`,
+    `import { createOptimistic } from "solid-js";
+const [likes, setLikes] = createOptimistic(0);
+console.log(likes());
+setLikes(1);`,
+    // function-form derived primitives change through their source function,
+    // so a missing setter reference is not "never written" (#234)
+    `import { createStore } from "solid-js";
+const [data] = createStore(() => api.load(), { items: [] });
+console.log(data.items.length);`,
+    `import { createSignal } from "solid-js";
+const [count, setCount] = createSignal(0);
+const [doubled] = createSignal(() => count() * 2);
+console.log(doubled());
+setCount(1);`,
+    // the source function may arrive through a const binding
+    `import { createSignal } from "solid-js";
+const compute = () => 2;
+const [doubled] = createSignal(compute);
+console.log(doubled());`,
+    `import { createSignal } from "solid-js";
+function compute() { return 2; }
+const [doubled] = createSignal(compute);
+console.log(doubled());`,
   ],
   invalid: [
     {
-      code: `
-import { createSignal } from 'solid-js';
-function App() {
-  const [count, setCount] = createSignal(0);
-  return <div>{count()}</div>;
-}
-      `,
+      code: `import { createSignal } from "solid-js";
+const [count, setCount] = createSignal(0);
+console.log(count());`,
+      errors: [
+        {
+          messageId: 'neverWritten',
+          suggestions: [
+            {
+              messageId: 'replaceWithAccessor',
+              output: `import { createSignal } from "solid-js";
+const count = () => 0;
+console.log(count());`,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      code: `import { createSignal } from "solid-js";
+const [count] = createSignal(0);
+console.log(count());`,
+      errors: [
+        {
+          messageId: 'neverWritten',
+          suggestions: [
+            {
+              messageId: 'replaceWithAccessor',
+              output: `import { createSignal } from "solid-js";
+const count = () => 0;
+console.log(count());`,
+            },
+          ],
+        },
+      ],
+    },
+    // non-literal initializer: report without a suggestion
+    {
+      code: `import { createSignal } from "solid-js";
+const [items, setItems] = createSignal([]);
+console.log(items());`,
       errors: [{ messageId: 'neverWritten' }],
     },
     {
-      code: `
-import { createSignal } from 'solid-js';
-function App() {
-  const [count, setCount] = createSignal(0);
-  return <button onClick={() => setCount(1)}>inc</button>;
-}
-      `,
+      code: `import { createSignal } from "solid-js";
+const [count, setCount] = createSignal(0);
+setCount(5);`,
       errors: [{ messageId: 'neverRead' }],
+    },
+    {
+      code: `import { createSignal } from "solid-js";
+const [, setCount] = createSignal(0);
+setCount(5);`,
+      errors: [{ messageId: 'neverRead' }],
+    },
+    // a never-written store is a plain object with extra steps; no accessor
+    // rewrite suggestion, since a store proxy isn't accessor-shaped
+    {
+      code: `import { createStore } from "solid-js";
+const [config] = createStore({ theme: "dark" });
+console.log(config.theme);`,
+      errors: [{ messageId: 'neverWritten' }],
+    },
+    {
+      code: `import { createStore } from "solid-js";
+const [state, setState] = createStore({ n: 0 });
+setState((draft) => draft.n++);`,
+      errors: [{ messageId: 'neverRead' }],
+    },
+    {
+      code: `import { createOptimistic } from "solid-js";
+const [likes, setLikes] = createOptimistic(0);
+console.log(likes());`,
+      errors: [
+        {
+          messageId: 'neverWritten',
+        },
+      ],
+    },
+    // the export exemption covers only the exported declaration itself; a
+    // tuple inside an exported function is unreachable from other modules
+    // and stays conclusively analyzable (#234)
+    {
+      code: `import { createSignal } from "solid-js";
+export function Exported() {
+  const [unused] = createSignal(0);
+  return <p>{unused()}</p>;
+}`,
+      errors: [
+        {
+          messageId: 'neverWritten',
+          suggestions: [
+            {
+              messageId: 'replaceWithAccessor',
+              output: `import { createSignal } from "solid-js";
+export function Exported() {
+  const unused = () => 0;
+  return <p>{unused()}</p>;
+}`,
+            },
+          ],
+        },
+      ],
+    },
+    // neverRead still applies to function-form derived primitives: an unread
+    // derived value is dead state no matter how it updates
+    {
+      code: `import { createStore } from "solid-js";
+const [data] = createStore(() => api.load(), { items: [] });`,
+      errors: [{ messageId: 'neverRead' }],
+    },
+    // an identifier that can't be proven to be a function keeps the check
+    {
+      code: `import { createSignal } from "solid-js";
+const [count] = createSignal(someValue);
+console.log(count());`,
+      errors: [{ messageId: 'neverWritten' }],
+    },
+    // settings.solid.moduleSources registers custom renderers/re-export
+    // wrappers as Solid primitive sources (#183)
+    {
+      code: `import { createSignal } from "my-solid-renderer";
+const [count, setCount] = createSignal(0);
+console.log(count());`,
+      settings: { solid: { moduleSources: ['my-solid-renderer'] } },
+      errors: [
+        {
+          messageId: 'neverWritten',
+          suggestions: [
+            {
+              messageId: 'replaceWithAccessor',
+              output: `import { createSignal } from "my-solid-renderer";
+const count = () => 0;
+console.log(count());`,
+            },
+          ],
+        },
+      ],
     },
   ],
 })
