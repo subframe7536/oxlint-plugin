@@ -1,40 +1,35 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run, tsOnly } from './test-utils.ts'
 import { noUnassignedVarsRule as rule } from './no-unassigned-vars.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-no-unassigned-vars', rule, {
+export const cases = run('no-unassigned-vars', rule, {
   valid: [
+    `let el; <div ref={el} onClick={() => el.focus()} />;`,
+    `let api; <Dialog ref={api} />; api.open();`,
     {
-      code: `
-function App() {
-  let el: HTMLDivElement | undefined;
-  return <div ref={el} />;
-}
-      `,
+      code: `let el!: HTMLDivElement; <div ref={el} onClick={() => el.focus()} />;`,
+      [tsOnly]: true,
     },
     {
-      code: `
-let x = 1;
-console.log(x);
-      `,
+      code: `let el: HTMLDivElement | undefined; <div ref={el!} />; el?.focus();`,
+      [tsOnly]: true,
     },
+    `let x; x = 1; use(x);`,
+    `let x = 1; use(x);`,
+    `let x;`,
+    { code: `declare let x: number; use(x);`, [tsOnly]: true },
   ],
   invalid: [
     {
-      code: `
-function App() {
-  let el: HTMLDivElement | undefined;
-  console.log(el);
-  return <div />;
-}
-      `,
-      errors: [{ messageId: 'unassigned' }],
+      code: `let x; use(x);`,
+      errors: [{ messageId: 'unassigned', data: { name: 'x' } }],
+    },
+    {
+      code: `let el; <div ref={() => el} />;`,
+      errors: [{ messageId: 'unassigned', data: { name: 'el' } }],
+    },
+    {
+      code: `let el; <Comp elRef={el} />;`,
+      errors: [{ messageId: 'unassigned', data: { name: 'el' } }],
     },
   ],
 })

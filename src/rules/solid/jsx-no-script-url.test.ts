@@ -1,49 +1,40 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run } from './test-utils.ts'
 import { jsxNoScriptUrlRule as rule } from './jsx-no-script-url.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-jsx-no-script-url', rule, {
+export const cases = run('jsx-no-script-url', rule, {
   valid: [
-    // Normal URLs - safe
-    { code: `<a href="https://example.com">link</a>` },
-    { code: `<a href="/path">link</a>` },
-    // Dynamic URL - can't be statically analyzed, not flagged
-    { code: `<a href={url}>link</a>` },
-    // Other attrs without javascript:
-    { code: `<img src="https://example.com/img.png" />` },
-    // Empty href
-    { code: `<a href="#">link</a>` },
+    `let el = <a href="https://example.com" />`,
+    `let el = <Link to="https://example.com" />`,
+    `let el = <Foo bar="https://example.com" />`,
+    `const link = "https://example.com";
+    let el = <a href={link} />`,
   ],
   invalid: [
-    // javascript: URL in href
     {
-      code: `<a href="javascript:void(0)">link</a>`,
+      code: `let el = <a href="javascript:alert('hacked!')" />`,
       errors: [{ messageId: 'noJSURL' }],
     },
-    // javascript: URL in src
     {
-      code: `<iframe src="javascript:false"/>`,
+      code: `let el = <Link to="javascript:alert('hacked!')" />`,
       errors: [{ messageId: 'noJSURL' }],
     },
-    // Case-insensitive match
     {
-      code: `<a href="JAVASCRIPT:void(0)">link</a>`,
+      code: `let el = <Foo bar="javascript:alert('hacked!')" />`,
       errors: [{ messageId: 'noJSURL' }],
     },
-    // With whitespace prefix
     {
-      code: `<a href=" javascript:alert(1)">link</a>`,
+      code: `const link = "javascript:alert('hacked!')";
+    let el = <a href={link} />`,
       errors: [{ messageId: 'noJSURL' }],
     },
-    // Literal inside expression container should also be detected
     {
-      code: `<a href={"javascript:alert(1)"}>link</a>`,
+      code: `const link = "\\tj\\na\\tv\\na\\ts\\nc\\tr\\ni\\tpt:alert('hacked!')";
+    let el = <a href={link} />`,
+      errors: [{ messageId: 'noJSURL' }],
+    },
+    {
+      code: `const link = "javascrip" + "t:alert('hacked!')";
+    let el = <a href={link} />`,
       errors: [{ messageId: 'noJSURL' }],
     },
   ],

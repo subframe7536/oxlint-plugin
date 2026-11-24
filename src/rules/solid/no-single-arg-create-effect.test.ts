@@ -1,29 +1,25 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run } from './test-utils.ts'
 import { noSingleArgCreateEffectRule as rule } from './no-single-arg-create-effect.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-no-single-arg-create-effect', rule, {
+export const cases = run('no-single-arg-create-effect', rule, {
   valid: [
-    {
-      code: `
-import { createEffect } from 'solid-js';
-createEffect(() => count(), (v) => console.log(v));
-      `,
-    },
+    `import { createEffect } from "solid-js";
+createEffect(() => count(), (value) => console.log(value));`,
+    `import { createEffect } from "solid-js";
+createEffect(count, (value) => console.log(value), { name: "logger" });`,
+    `import { createRenderEffect } from "solid-js";
+createRenderEffect(() => count(), (value) => update(value));`,
   ],
   invalid: [
     {
-      code: `
-import { createEffect } from 'solid-js';
-createEffect(() => console.log(count()));
-      `,
+      code: `import { createEffect } from "solid-js";
+createEffect(() => console.log(count()));`,
       errors: [{ messageId: 'singleArgEffect' }],
+    },
+    {
+      code: `import { createRenderEffect } from "solid-js";
+createRenderEffect(() => update(count()));`,
+      errors: [{ messageId: 'singleArgRenderEffect' }],
     },
   ],
 })

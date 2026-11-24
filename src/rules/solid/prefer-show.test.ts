@@ -1,46 +1,103 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run } from './test-utils.ts'
 import { preferShowRule as rule } from './prefer-show.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-prefer-show', rule, {
+export const cases = run('prefer-show', rule, {
   valid: [
-    // Already using <Show>
-    { code: `<Show when={cond()}><div/></Show>` },
-    // && outside JSX (assignment/variable) - fine
-    { code: `const x = cond() && <div/>` },
-    // Non-JSX ternary - fine
-    { code: `const x = a ? b : c` },
+    `function Component(props) {
+      return <Show when={props.cond}>Content</Show>;
+    }`,
+    `function Component(props) {
+      return <Show when={props.cond} fallback="Fallback">Content</Show>;
+    }`,
   ],
   invalid: [
-    // && in JSX expression should use <Show>
     {
-      code: `<>{cond() && <div/>}</>`,
+      code: `
+      function Component(props) {
+        return <div>{props.cond && <span>Content</span>}</div>;
+      }`,
       errors: [{ messageId: 'preferShowAnd' }],
-      output: `<><Show when={cond()}><div/></Show></>`,
+      output: `
+      function Component(props) {
+        return <div><Show when={props.cond}><span>Content</span></Show></div>;
+      }`,
     },
-    // ternary in JSX expression should use <Show>
     {
-      code: `<>{cond() ? <div/> : null}</>`,
-      errors: [{ messageId: 'preferShowTernary' }],
-      output: `<><Show when={cond()} fallback={null}><div/></Show></>`,
-    },
-    // ternary with non-null fallback
-    {
-      code: `<>{cond() ? <A/> : <B/>}</>`,
-      errors: [{ messageId: 'preferShowTernary' }],
-      output: `<><Show when={cond()} fallback={<B/>}><A/></Show></>`,
-    },
-    // arrow function with logical expression body inside JSX should be reported
-    {
-      code: `<>{() => cond() && <div/>}</>`,
+      code: `
+      function Component(props) {
+        return <>{props.cond && <span>Content</span>}</>;
+      }`,
       errors: [{ messageId: 'preferShowAnd' }],
-      output: `<><Show when={cond()}><div/></Show></>`,
+      output: `
+      function Component(props) {
+        return <><Show when={props.cond}><span>Content</span></Show></>;
+      }`,
+    },
+    {
+      code: `
+      function Component(props) {
+        return (
+          <div>
+            {props.cond ? (
+              <span>Content</span> 
+            ) : (
+              <span>Fallback</span>
+            )}
+          </div>
+        );
+      }`,
+      errors: [{ messageId: 'preferShowTernary' }],
+      output: `
+      function Component(props) {
+        return (
+          <div>
+            <Show when={props.cond} fallback={<span>Fallback</span>}><span>Content</span></Show>
+          </div>
+        );
+      }`,
+    },
+    // Check that it also works with control flow function children
+    {
+      code: `
+      function Component(props) {
+        return (
+          <For each={props.someList}>
+            {(listItem) => listItem.cond && <span>Content</span>}
+          </For>
+        );
+      }`,
+      errors: [{ messageId: 'preferShowAnd' }],
+      output: `
+      function Component(props) {
+        return (
+          <For each={props.someList}>
+            {(listItem) => <Show when={listItem.cond}><span>Content</span></Show>}
+          </For>
+        );
+      }`,
+    },
+    {
+      code: `
+      function Component(props) {
+        return (
+          <For each={props.someList}>
+            {(listItem) => (listItem.cond ? (
+              <span>Content</span> 
+            ) : (
+              <span>Fallback</span>
+            ))}
+          </For>
+        );
+      }`,
+      errors: [{ messageId: 'preferShowTernary' }],
+      output: `
+      function Component(props) {
+        return (
+          <For each={props.someList}>
+            {(listItem) => (<Show when={listItem.cond} fallback={<span>Fallback</span>}><span>Content</span></Show>)}
+          </For>
+        );
+      }`,
     },
   ],
 })
