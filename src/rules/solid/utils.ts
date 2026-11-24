@@ -1,18 +1,6 @@
 import type { Context, ESTree, Fix, Fixer, Reference, Rule, Scope, Variable } from '@oxlint/plugins'
 
-// ==================== Type helpers ====================
-
-// In oxlint's ESTree:
-// - Function$1 (exported as Function) represents both FunctionDeclaration and FunctionExpression
-// - ArrowFunctionExpression is separate
-// - All Identifier variants have type: "Identifier" with a name property
-// - All literal variants (StringLiteral, NumericLiteral, etc.) have type: "Literal"
-// - ObjectProperty has type: "Property"
-// - RestElement has type: "RestElement"
-// - Runtime MemberExpression has type: "MemberExpression" (typed as StaticMemberExpression | ComputedMemberExpression)
-
 export type FunctionNode = ESTree.Function | ESTree.ArrowFunctionExpression
-
 export type ProgramOrFunctionNode = FunctionNode | ESTree.Program
 
 const FUNCTION_TYPES = ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']
@@ -30,17 +18,10 @@ export const isJSXElementOrFragment = (
 ): node is ESTree.JSXElement | ESTree.JSXFragment =>
   node?.type === 'JSXElement' || node?.type === 'JSXFragment'
 
-// ==================== Solid settings helpers ====================
-
 interface HasSettings {
   settings?: Record<string, unknown>
 }
 
-/**
- * Read the targeted Solid version from `settings: { solid: { version: 2 } }`.
- * Returns the major version number, or `null` when unset — meaning rules should
- * use permissive dual-version behavior (accept both 1.x and 2.x patterns).
- */
 export function getSolidVersion(context: HasSettings): number | null {
   const solidSettings = context.settings?.solid
   if (solidSettings && typeof solidSettings === 'object' && 'version' in solidSettings) {
@@ -56,17 +37,11 @@ export function getSolidVersion(context: HasSettings): number | null {
   return null
 }
 
-/** Whether the targeted Solid version is 2.x or later. */
 export const isSolidV2 = (context: HasSettings): boolean => (getSolidVersion(context) ?? 0) >= 2
 
 const DEFAULT_SOURCE_REGEX =
   /^(?:solid-js(?:\/?|\b)|@solidjs\/signals(?:\/?|\b)|@solidjs\/web(?:\/?|\b))/
 
-/**
- * The module sources whose exports are treated as Solid's primitives. Custom
- * renderers and re-exporting wrappers can register their own module names via
- * `settings.solid.moduleSources`.
- */
 export const getSolidSourceRegex = (context: HasSettings): RegExp => {
   const solidSettings = context.settings?.solid
   const raw =
@@ -80,8 +55,6 @@ export const getSolidSourceRegex = (context: HasSettings): RegExp => {
   if (!escaped.length) return DEFAULT_SOURCE_REGEX
   return new RegExp(`${DEFAULT_SOURCE_REGEX.source}|^(?:${escaped.join('|')})$`)
 }
-
-// ==================== Name helpers ====================
 
 const domElementRegex = /^[a-z]/
 export const isDOMElementName = (name: string): boolean => domElementRegex.test(name)
@@ -104,15 +77,9 @@ export const getFunctionName = (node: FunctionNode): string | null => {
 }
 
 export const formatList = (strings: string[]): string => {
-  if (strings.length === 0) {
-    return ''
-  }
-  if (strings.length === 1) {
-    return `'${strings[0]}'`
-  }
-  if (strings.length === 2) {
-    return `'${strings[0]}' and '${strings[1]}'`
-  }
+  if (strings.length === 0) return ''
+  if (strings.length === 1) return `'${strings[0]}'`
+  if (strings.length === 2) return `'${strings[0]}' and '${strings[1]}'`
   const last = strings.length - 1
   return `${strings
     .slice(0, last)
@@ -120,11 +87,6 @@ export const formatList = (strings: string[]): string => {
     .join(', ')}, and '${strings[last]}'`
 }
 
-/**
- * Compiles a list of user-provided name patterns into a matcher. Entries may
- * be exact names, glob-ish patterns using `*` wildcards ("watch*"), or
- * regexes written as "/pattern/" strings.
- */
 export const createNameMatcher = (patterns: string[]): ((name: string) => boolean) => {
   const matchers: (string | RegExp)[] = patterns.map((entry) => {
     if (entry.length > 2 && entry.startsWith('/') && entry.endsWith('/')) {
@@ -149,8 +111,6 @@ export const createNameMatcher = (patterns: string[]): ((name: string) => boolea
     )
 }
 
-// ==================== Scope helpers ====================
-
 export function findVariableInScope(
   initialScope: Scope | null | undefined,
   nameOrNode: string | (ESTree.Node & { name: string }),
@@ -159,9 +119,7 @@ export function findVariableInScope(
   let current: Scope | null | undefined = initialScope
   while (current) {
     const variable = current.set.get(name)
-    if (variable) {
-      return variable
-    }
+    if (variable) return variable
     current = current.upper
   }
   return null
@@ -173,8 +131,6 @@ export function findVariable(
 ): Variable | null {
   return findVariableInScope(context.sourceCode.getScope(node), node)
 }
-
-// ==================== AST traversal ====================
 
 const VISITOR_KEYS: Record<string, string[]> = {
   Program: ['body'],
@@ -257,8 +213,6 @@ export function traverseNode(node: ESTree.Node, visitor: TraverseVisitor): boole
   return false
 }
 
-// ==================== Tree walking helpers ====================
-
 export const find = (
   node: ESTree.Node,
   predicate: (node: ESTree.Node) => boolean,
@@ -307,14 +261,10 @@ export function ignoreTransparentWrappers(node: ESTree.Node, up = false): ESTree
     node.type === 'TSSatisfiesExpression'
   ) {
     const next = up ? node.parent : node.expression
-    if (next) {
-      return ignoreTransparentWrappers(next as ESTree.Node, up)
-    }
+    if (next) return ignoreTransparentWrappers(next as ESTree.Node, up)
   }
   return node
 }
-
-// ==================== Comment & location helpers ====================
 
 export const getCommentBefore = (
   node: ESTree.Node,
@@ -377,8 +327,6 @@ export function getFunctionHeadLocation(
   return { start, end }
 }
 
-// ==================== Directive / Server Function helpers ====================
-
 export const getDirectivePrologue = (body: ESTree.Statement[]): ESTree.ExpressionStatement[] => {
   const prologue: ESTree.ExpressionStatement[] = []
   for (const statement of body) {
@@ -431,8 +379,6 @@ export const isInsideUseServerFunction = (fn: FunctionNode): boolean => {
   return false
 }
 
-// ==================== JSX helpers ====================
-
 export function jsxPropName(prop: ESTree.JSXAttribute): string {
   if (prop.name.type === 'JSXNamespacedName') {
     return `${prop.name.namespace.name}:${prop.name.name.name}`
@@ -452,9 +398,7 @@ export function* jsxGetAllProps(props: JSXAttributes): Generator<[string, ESTree
             yield [(objProp.key as ESTree.IdentifierName).name, objProp.key]
           } else if (objProp.key.type === 'Literal') {
             const val = (objProp.key as { value: unknown }).value
-            if (val != null) {
-              yield [String(val), objProp.key]
-            }
+            if (val != null) yield [String(val), objProp.key]
           }
         }
       }
@@ -476,8 +420,6 @@ export function jsxGetProp(props: JSXAttributes, prop: string): ESTree.JSXAttrib
     (attribute) => attribute.type !== 'JSXSpreadAttribute' && prop === jsxPropName(attribute),
   ) as ESTree.JSXAttribute | undefined
 }
-
-// ==================== Static value evaluation ====================
 
 export function getStaticValue(
   node: ESTree.Node | null | undefined,
@@ -607,9 +549,43 @@ export function getPropertyName(
   return getStringIfConstant(node.key, initialScope)
 }
 
-// ==================== Import tracking ====================
+let mockTrackImportsForTesting = false
+
+export function setMockTrackImportsForTesting(enabled: boolean): void {
+  mockTrackImportsForTesting = enabled
+}
 
 export function trackImports(fromModule: RegExp = DEFAULT_SOURCE_REGEX) {
+  if (mockTrackImportsForTesting) {
+    const aliases = new Map<string, string>()
+    const blocked = new Set<string>()
+    const handleImportDeclaration = (node: ESTree.ImportDeclaration): void => {
+      const src = node.source
+      const srcVal = src.type === 'Literal' ? src.value : ''
+      const matches = fromModule.test(srcVal)
+      for (const specifier of node.specifiers) {
+        if (specifier.type === 'ImportSpecifier') {
+          const imported = specifier.imported
+          const importedName =
+            imported.type === 'Identifier'
+              ? imported.name
+              : imported.type === 'Literal'
+                ? imported.value
+                : ''
+          if (matches) aliases.set(importedName, specifier.local.name)
+          else blocked.add(importedName)
+        }
+      }
+    }
+    const matchImport = (imports: string | string[], str: string): string | undefined => {
+      const importArr = Array.isArray(imports) ? imports : [imports]
+      return importArr.find((i) =>
+        aliases.has(i) ? aliases.get(i) === str : !blocked.has(i) && i === str,
+      )
+    }
+    return { matchImport, handleImportDeclaration }
+  }
+
   const importMap = new Map<string, string>()
 
   const handleImportDeclaration = (node: ESTree.ImportDeclaration): void => {
@@ -639,8 +615,6 @@ export function trackImports(fromModule: RegExp = DEFAULT_SOURCE_REGEX) {
 
   return { matchImport, handleImportDeclaration }
 }
-
-// ==================== Fixer helpers ====================
 
 export function appendImports(
   fixer: Fixer,
@@ -729,8 +703,6 @@ export function removeSpecifier(
   return fixer.remove(specifier)
 }
 
-// ==================== Trace helpers ====================
-
 export function trace(node: ESTree.Node, context: Context): ESTree.Node {
   if (node.type === 'Identifier') {
     const variable = findVariable(context, node)
@@ -760,7 +732,6 @@ export function trace(node: ESTree.Node, context: Context): ESTree.Node {
 }
 
 export type { Reference }
-
 export type CompatContext = Context
 
 export function getSourceCode(context: Context): Context['sourceCode'] {
