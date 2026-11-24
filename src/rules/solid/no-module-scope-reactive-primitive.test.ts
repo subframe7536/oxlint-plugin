@@ -1,0 +1,49 @@
+import { run } from './test-utils.ts'
+import { noModuleScopeReactivePrimitiveRule as rule } from './no-module-scope-reactive-primitive.ts'
+
+export const cases = run('no-module-scope-reactive-primitive', rule, {
+  valid: [
+    // inside a component
+    `import { createSignal } from "solid-js";
+function Counter() {
+  const [count, setCount] = createSignal(0);
+  return <div>{count()}</div>;
+}`,
+    // inside any function (custom primitives, providers)
+    `import { createStore } from "solid-js";
+export function createTodos() {
+  const [todos, setTodos] = createStore([]);
+  return [todos, setTodos];
+}`,
+    // createRoot is the deliberate escape hatch: the primitive is inside its callback
+    `import { createRoot, createSignal } from "solid-js";
+const counter = createRoot(() => createSignal(0));`,
+  ],
+  invalid: [
+    {
+      code: `import { createDeferred } from "solid-js";
+export const results = createDeferred(async () => fetchResults());`,
+      errors: [{ messageId: 'moduleScopePrimitive', data: { name: 'createDeferred' } }],
+    },
+    {
+      code: `import { createSignal } from "solid-js";
+const [count, setCount] = createSignal(0);`,
+      errors: [{ messageId: 'moduleScopePrimitive', data: { name: 'createSignal' } }],
+    },
+    {
+      code: `import { createStore } from "solid-js";
+export const [state, setState] = createStore({ user: null });`,
+      errors: [{ messageId: 'moduleScopePrimitive', data: { name: 'createStore' } }],
+    },
+    {
+      code: `import { createMemo } from "solid-js";
+const doubled = createMemo(() => count() * 2);`,
+      errors: [{ messageId: 'moduleScopePrimitive', data: { name: 'createMemo' } }],
+    },
+    {
+      code: `import { createEffect } from "solid-js";
+createEffect(count, (c) => console.log(c));`,
+      errors: [{ messageId: 'moduleScopePrimitive', data: { name: 'createEffect' } }],
+    },
+  ],
+})

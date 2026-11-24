@@ -1,43 +1,397 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run, tsOnly } from './test-utils.ts'
 import { noDestructureRule as rule } from './no-destructure.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-no-destructure', rule, {
+export const cases = run('no-destructure', rule, {
   valid: [
-    // Correct: use props.x to preserve reactivity
-    { code: `function App(props) { return <div>{props.name}</div> }` },
-    // Non-component with destructuring is fine (no JSX in body)
-    { code: `function App({ name }) { return name }` },
-    // Arrow function component using props correctly
-    { code: `const App = (props) => <div>{props.title}</div>` },
-    // No props at all
-    { code: `function App() { return <div>static</div> }` },
+    `let Component = props => <div />`,
+    `let Component = (props) => <div />`,
+    `let Component = (props) => { return <div />; }`,
+    `let Component = (props) => (<div />)`,
+    `let Component = props => null`,
+    `let Component = (props) => <div a={props.a} />`,
+    `let Component = (props) => { 
+      const [local, rest] = splitProps(props, ['a']);
+      return <div a={local.a} b={rest.b} />;
+    }`,
+    `let Component = props => {
+      const { a } = someFunction();
+      return <div a={a} />
+    }`,
+    `let NotAComponent = ({ a }, more, params) => <div a={a} />`,
+    `let Component = props => {
+      let inner = ({ a, ...rest }) => a;
+      let a = inner({ a: 5 });
+      return <div a={a} />;
+    }`,
+    `
+    // This one might be surprising, since we're clearly destructuring props!
+    // But this will be caught as a reactive expression use outside of
+    // a tracked scope, in the "solid/reactivity" rule. There's really 
+    // nothing wrong with destructuring props in tracked scopes when done 
+    // correctly, but catching it in the params covers the most common 
+    // cases with good DX.
+    let Component = props => {
+      let { a } = props;
+      return <div a={a} />;
+    }`,
+    `let element = <div />`, // parse top level JSX
+    // Data callbacks destructure items, not props — even when they return JSX
+    `let Component = (props) => <ul>{props.items.map(({ id, name }) => <li id={id}>{name}</li>)}</ul>;`,
+    `let rows = items.map(({ id }) => <tr id={id} />);`,
+    `let Component = (props) => <For each={props.items}>{({ id }) => <li id={id} />}</For>;`,
+    // Lowercase-named helpers follow the non-component naming convention
+    `let renderItem = ({ id, name }) => <li id={id}>{name}</li>;`,
+    `function renderRow({ cells }) { return <tr>{cells}</tr>; }`,
+    // ...but PascalCase call arguments (HOC-style wrappers) are still components
+    {
+      code: `let Component = (props: Props) => <div />;`,
+      [tsOnly]: true,
+    },
   ],
   invalid: [
-    // Basic destructure in component
+    // reported without an autofix when the fix can't be faithful (#261)
     {
-      code: `function App({ name }) { return <div>{name}</div> }`,
+      // nested pattern: the inner bindings have no props.x equivalent
+      code: `export const A = ({ user: { name } }) => <div>{name}</div>;`,
       errors: [{ messageId: 'noDestructure' }],
-      output: `function App(props) { return <div>{props.name}</div> }`,
     },
-    // Multiple destructured props
     {
-      code: `function App({ a, b }) { return <div>{a}{b}</div> }`,
+      code: `export const A = ({ items: [first] }) => <div>{first}</div>;`,
       errors: [{ messageId: 'noDestructure' }],
-      output: `function App(props) { return <div>{props.a}{props.b}</div> }`,
     },
-    // Destructuring with default should be flagged (requires mergeProps/merge handling)
     {
-      code: `function App({ name = 'guest' }) { return <div>{name}</div> }`,
+      // an enclosing component's props would be shadowed
+      code: `export const Outer = (props) => {
+  const Inner = ({ label }) => <div>{label}: {props.title}</div>;
+  return <Inner label="hi" />;
+};`,
       errors: [{ messageId: 'noDestructure' }],
-      output: `function App(_props) {   const props = mergeProps({ name: 'guest' }, _props);
-return <div>{props.name}</div> }`,
+    },
+    {
+      // a local props would be declared twice
+      code: `export const C = ({ a }) => {
+  const props = { b: 1 };
+  return <div>{a}{props.b}</div>;
+};`,
+      errors: [{ messageId: 'noDestructure' }],
+    },
+    {
+      // a nested function's props would capture the rewritten access
+      code: `export const C = ({ a }) => {
+  const f = (props) => props.x + a;
+  return <div>{f({ x: 1 })}</div>;
+};`,
+      errors: [{ messageId: 'noDestructure' }],
+    },
+    {
+      // a default that reads another destructured prop used to crash ESLint with
+      // overlapping fixes
+      code: `export const D = ({ a, b = a }) => <div>{b}</div>;`,
+      errors: [{ messageId: 'noDestructure' }],
+    },
+    {
+      code: `export const D = ({ a: x, b = x }) => <div>{b}</div>;`,
+      errors: [{ messageId: 'noDestructure' }],
+    },
+    {
+      // a destructured prop named props is fine: the binding goes away with the fix
+      code: `export const P = ({ props }) => <div>{props}</div>;`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `export const P = (props) => <div>{props.props}</div>;`,
+    },
+    {
+      code: `let Component = ({}) => <div />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => <div />`,
+    },
+    {
+      code: `let Component = ({ a }) => <div a={a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => <div a={props.a} />`,
+    },
+    {
+      code: `let Component = ({ a }) => (<div a={a} />)`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => (<div a={props.a} />)`,
+    },
+    {
+      code: `let Component = ({ a: A }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => <div a={props.a} />`,
+    },
+
+    {
+      code: `let Component = ({ 'a': A }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => <div a={props['a']} />`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: a }) => <div a={a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => <div a={props['a' + '']} />`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: a, b }) => <div a={a} b={b} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props) => <div a={props['a' + '']} b={props.b} />`,
+    },
+    {
+      code: `let Component = ({ a = 5 }) => <div a={a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => {
+  const props = mergeProps({ a: 5 }, _props);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a = 5 }) => (<div a={a} />)`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => {
+  const props = mergeProps({ a: 5 }, _props);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a: A = 5 }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => {
+  const props = mergeProps({ a: 5 }, _props);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ 'a': A = 5 }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => {
+  const props = mergeProps({ 'a': 5 }, _props);
+  return (<div a={props['a']} />);
+}`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: a = 5 }) => <div a={a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => {
+  const props = mergeProps({ ['a' + '']: 5 }, _props);
+  return (<div a={props['a' + '']} />);
+}`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: a = 5, b = 10, c }) => <div a={a} b={b} c={c} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => {
+  const props = mergeProps({ ['a' + '']: 5, b: 10 }, _props);
+  return (<div a={props['a' + '']} b={props.b} c={props.c} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a = 5 }) => { 
+        return <div a={a} />; 
+      }`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => { 
+          const props = mergeProps({ a: 5 }, _props);
+return <div a={props.a} />; 
+      }`,
+    },
+    {
+      code: `let Component = ({ a = 5 }) => { 
+        various();
+        statements();
+        return <div a={a} />; 
+      }`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps } from "solid-js";
+let Component = (_props) => { 
+          const props = mergeProps({ a: 5 }, _props);
+various();
+        statements();
+        return <div a={props.a} />; 
+      }`,
+    },
+    {
+      code: `let Component = ({ ...rest }) => <div a={rest.a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, []);
+  return (<div a={rest.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a, ...rest }) => <div a={a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ["a"]);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a, ...rest }) => (<div a={a} />)`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ["a"]);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a, ...other }) => <div a={a} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, other] = splitProps(_props, ["a"]);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a, ...rest }) => <div a={a} b={rest.b} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ["a"]);
+  return (<div a={props.a} b={rest.b} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a: A, ...rest }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ["a"]);
+  return (<div a={props.a} />);
+}`,
+    },
+    {
+      code: `let Component = ({ 'a': A, ...rest }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ['a']);
+  return (<div a={props['a']} />);
+}`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: A, ...rest }) => <div a={A} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ['a' + '']);
+  return (<div a={props['a' + '']} />);
+}`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: A, ...rest }) => <div a={A} b={rest.b} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(_props, ['a' + '']);
+  return (<div a={props['a' + '']} b={rest.b} />);
+}`,
+    },
+    {
+      code: `let Component = ({ a = 5, ...rest }) => { 
+        return <div a={a} b={rest.b} />; 
+      }`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps, splitProps } from "solid-js";
+let Component = (_props) => { 
+          const [props, rest] = splitProps(mergeProps({ a: 5 }, _props), ["a"]);
+return <div a={props.a} b={rest.b} />; 
+      }`,
+    },
+    {
+      code: `let Component = ({ a = 5, ...rest }) => (<div a={a} b={rest.b} />)`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps, splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(mergeProps({ a: 5 }, _props), ["a"]);
+  return (<div a={props.a} b={rest.b} />);
+}`,
+    },
+    {
+      code: `let Component = ({ ['a' + '']: A = 5, ...rest }) => <div a={A} b={rest.b} />`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `import { mergeProps, splitProps } from "solid-js";
+let Component = (_props) => {
+  const [props, rest] = splitProps(mergeProps({ ['a' + '']: 5 }, _props), ['a' + '']);
+  return (<div a={props['a' + '']} b={rest.b} />);
+}`,
+    },
+    {
+      code: `let Component = ({ prop1, prop2 }: Props) => <div p1={prop1} p2={prop2} />;`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = (props: Props) => <div p1={props.prop1} p2={props.prop2} />;`,
+      [tsOnly]: true,
+    },
+    // a component passed to a PascalCase wrapper is still a component
+    {
+      code: `let Component = Memoize(({ a }) => <div a={a} />);`,
+      errors: [{ messageId: 'noDestructure' }],
+      output: `let Component = Memoize((props) => <div a={props.a} />);`,
+    },
+    // Solid 2.0: `merge`/`omit`, imported from "solid-js" (#239)
+    {
+      code: `export const Btn = ({ size = "md", ...rest }) => <button class={size} {...rest} />;`,
+      errors: [{ messageId: 'noDestructure' }],
+      settings: { solid: { version: 2 } },
+      output: `import { merge, omit } from "solid-js";
+export const Btn = (_props) => {
+  const props = merge({ size: "md" }, _props);
+  const rest = omit(props, "size");
+  return (<button class={props.size} {...rest} />);
+};`,
+    },
+    {
+      code: `export const Btn = ({ size = "md" }) => <button class={size} />;`,
+      errors: [{ messageId: 'noDestructure' }],
+      settings: { solid: { version: 2 } },
+      output: `import { merge } from "solid-js";
+export const Btn = (_props) => {
+  const props = merge({ size: "md" }, _props);
+  return (<button class={props.size} />);
+};`,
+    },
+    {
+      code: `import { createSignal } from "solid-js";
+export const Btn = ({ size, ...rest }) => <button class={size} {...rest} />;`,
+      errors: [{ messageId: 'noDestructure' }],
+      settings: { solid: { version: 2 } },
+      output: `import { createSignal, omit } from "solid-js";
+export const Btn = (props) => {
+  const rest = omit(props, "size");
+  return (<button class={props.size} {...rest} />);
+};`,
+    },
+    {
+      code: `import { omit } from "solid-js";
+export const Btn = ({ ...others }) => <button {...others} />;`,
+      errors: [{ messageId: 'noDestructure' }],
+      settings: { solid: { version: 2 } },
+      output: `import { omit } from "solid-js";
+export const Btn = (props) => {
+  const others = omit(props);
+  return (<button {...others} />);
+};`,
+    },
+    {
+      code: `import "./styles.css";
+export const Btn = ({ size = "md" }) => <button class={size} />;`,
+      errors: [{ messageId: 'noDestructure' }],
+      settings: { solid: { version: 2 } },
+      output: `import "./styles.css";
+import { merge } from "solid-js";
+export const Btn = (_props) => {
+  const props = merge({ size: "md" }, _props);
+  return (<button class={props.size} />);
+};`,
     },
   ],
 })

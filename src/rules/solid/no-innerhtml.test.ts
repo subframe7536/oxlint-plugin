@@ -1,54 +1,101 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run } from './test-utils.ts'
 import { noInnerHTMLRule as rule } from './no-innerhtml.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-no-innerhtml', rule, {
+export const cases = run('no-innerhtml', rule, {
   valid: [
-    // Static HTML string is allowed when allowStatic is true
-    {
-      code: `<div innerHTML="<p>Hello</p>" />`,
-      options: [{ allowStatic: true }],
-    },
-    // Normal text content is fine
-    { code: `<div>Hello world</div>` },
-    // Other attributes are fine
-    { code: `<div class="foo" id="bar" />` },
+    `let el = <div prop1 prop2={2}>Hello world!</div>`,
+    `let el = <Box prop1 prop2={2}>Hello world!</Box>`,
+    `let el = <div prop1 prop2={2} innerHTML="<p>Hello</p><p>world!</p>" />`,
+    `let el = <div prop1 prop2={2} innerHTML={"<p>Hello</p>" + "<p>world!</p>"} />`,
+    `let el = <div prop1 prop2={2} innerHTML="<p>Hello</p><p>world!</p>"></div>`,
   ],
   invalid: [
-    // Dynamic innerHTML is always dangerous
     {
-      code: `<div innerHTML={userInput} />`,
-      errors: [{ messageId: 'dangerous' }],
-    },
-    // Static HTML with existing children should conflict
-    {
-      code: `<div innerHTML="<p>hi</p>">child</div>`,
-      options: [{ allowStatic: true }],
-      errors: [{ messageId: 'conflict' }],
-    },
-    // Static innerHTML is flagged when allowStatic is explicitly set to false
-    {
-      code: `<div innerHTML="<p>safe</p>" />`,
+      code: `let el = <div prop1 prop2={2} innerHTML="<p>Hello</><p>world!</p>" />`,
       options: [{ allowStatic: false }],
       errors: [{ messageId: 'dangerous' }],
     },
-    // Static string that is not HTML should suggest using innerText
     {
-      code: `<div innerHTML="plain text" />`,
-      options: [{ allowStatic: true }],
-      errors: [{ messageId: 'notHtml' }],
+      code: `let el = <div innerHTML={"<p>Hello</p><p>world!</p>"} />`,
+      options: [{ allowStatic: false }],
+      errors: [{ messageId: 'dangerous' }],
     },
-    // React-style dangerouslySetInnerHTML is also flagged and auto-fixed
     {
-      code: `<div dangerouslySetInnerHTML={{ __html: content }} />`,
+      code: `let el = <div prop1 prop2={2} innerHTML={"<p>Hello</p>" + "<p>world!</p>"} />`,
+      options: [{ allowStatic: false }],
+      errors: [{ messageId: 'dangerous' }],
+    },
+    {
+      code: `let el = <div prop1 prop2={2} innerHTML={Math.random()} />`,
+      errors: [{ messageId: 'dangerous' }],
+    },
+    {
+      code: `let el = <div prop1 prop2={2} innerHTML="Hello world!" />`,
+      errors: [
+        {
+          messageId: 'notHtml',
+          suggestions: [
+            {
+              messageId: 'useInnerText',
+              output: `let el = <div prop1 prop2={2} innerText="Hello world!" />`,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      code: `
+        let el = (
+          <div prop1 prop2={2} innerHTML="<p>Hello</p><p>world!</p>">
+            <p>Child element content</p>
+          </div>
+        );
+      `,
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: `
+        let el = (
+          <div prop1 prop2={2} innerHTML="<p>Hello</p><p>world!</p>">
+            <p>Child element content 1</p>
+            <p>Child element context 2</p>
+          </div>
+        );
+      `,
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: `
+        let el = (
+          <div prop1 prop2={2} innerHTML="<p>Hello</p><p>world!</p>">
+            {"Child text content"}
+          </div>
+        );
+      `,
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: `
+        let el = (
+          <div prop1 prop2={2} innerHTML="<p>Hello</p><p>world!</p>">
+            {identifier}
+          </div>
+        );
+      `,
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: `let el = <div dangerouslySetInnerHTML={{ __html: "<p>Hello</p><p>world!</p>" }} />`,
       errors: [{ messageId: 'dangerouslySetInnerHTML' }],
-      output: `<div innerHTML={content} />`,
+      output: `let el = <div innerHTML={"<p>Hello</p><p>world!</p>"} />`,
+    },
+    {
+      code: `let el = <div dangerouslySetInnerHTML={foo} />`,
+      errors: [{ messageId: 'dangerouslySetInnerHTML' }],
+    },
+    {
+      code: `let el = <div dangerouslySetInnerHTML={{}} />`,
+      errors: [{ messageId: 'dangerouslySetInnerHTML' }],
     },
   ],
 })

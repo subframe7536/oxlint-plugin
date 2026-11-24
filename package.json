@@ -40,5 +40,9 @@
     "oxlint": "^1.77.0",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "parse5": "^7.3.0",
+    "validate-html-nesting": "^1.2.4"
   }
 }

@@ -1,39 +1,69 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { run, tsOnly } from './test-utils.ts'
 import { preferForRule as rule } from './prefer-for.ts'
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    sourceType: 'module',
-    parserOptions: { lang: 'tsx' },
-  },
-})
-
-ruleTester.run('solid-prefer-for', rule, {
+export const cases = run('prefer-for', rule, {
   valid: [
-    // Already using <For>
-    { code: `<For each={items()}>{item => <div>{item}</div>}</For>` },
-    // .map outside of JSX - fine (not reactive context)
-    { code: `const els = items.map(item => item * 2)` },
-    // .map result assigned to variable - fine
-    { code: `const mapped = list.map(x => x.name)` },
+    `let Component = (props) => <ol><For each={props.data}>{d => <li>{d.text}</li>}</For></ol>;`,
+    `let abc = x.map(y => y + z);`,
+    `let Component = (props) => {
+      let abc = x.map(y => y + z);
+      return <div>Hello, world!</div>;
+    }`,
   ],
   invalid: [
-    // .map inside JSX fragment
+    // fixes to add <For />, which can be auto-imported in jsx-no-undef
     {
-      code: `<>{items().map(item => <div>{item}</div>)}</>`,
+      code: `let Component = (props) => <ol>{props.data.map(d => <li>{d.text}</li>)}</ol>;`,
       errors: [{ messageId: 'preferFor' }],
-      output: `<><For each={items()}>{item => <div>{item}</div>}</For></>`,
+      output: `let Component = (props) => <ol><For each={props.data}>{d => <li>{d.text}</li>}</For></ol>;`,
     },
-    // .map as a JSX expression child
     {
-      code: `<div>{list().map(x => <span key={x.id}>{x.name}</span>)}</div>`,
+      code: `let Component = (props) => <>{props.data.map(d => <li>{d.text}</li>)}</>;`,
       errors: [{ messageId: 'preferFor' }],
-      output: `<div><For each={list()}>{x => <span key={x.id}>{x.name}</span>}</For></div>`,
+      output: `let Component = (props) => <><For each={props.data}>{d => <li>{d.text}</li>}</For></>;`,
     },
-    // .map with two params should suggest using Index or For/Index combos
     {
-      code: `<>{items().map((item, i) => <div>{i}: {item}</div>)}</>`,
+      code: `let Component = (props) => <ol>{props.data.map(d => <li key={d.id}>{d.text}</li>)}</ol>;`,
+      errors: [{ messageId: 'preferFor' }],
+      output: `let Component = (props) => <ol><For each={props.data}>{d => <li key={d.id}>{d.text}</li>}</For></ol>;`,
+    },
+    {
+      code: `
+      function Component(props) {
+        return <ol>{props.data.map(d => <li>{d.text}</li>)}</ol>;
+      }`,
+      errors: [{ messageId: 'preferFor' }],
+      output: `
+      function Component(props) {
+        return <ol><For each={props.data}>{d => <li>{d.text}</li>}</For></ol>;
+      }`,
+    },
+    {
+      code: `
+      function Component(props) {
+        return <ol>{props.data?.map(d => <li>{d.text}</li>)}</ol>;
+      }`,
+      errors: [{ messageId: 'preferFor' }],
+      output: `
+      function Component(props) {
+        return <ol>{<For each={props.data}>{d => <li>{d.text}</li>}</For>}</ol>;
+      }`,
+      [tsOnly]: true,
+    },
+    // deopts
+    {
+      code: `let Component = (props) => <ol>{props.data.map(() => <li />)}</ol>;`,
       errors: [{ messageId: 'preferForOrIndex' }],
+    },
+    {
+      code: `let Component = (props) => <ol>{props.data.map((...args) => <li>{args[0].text}</li>)}</ol>;`,
+      errors: [{ messageId: 'preferForOrIndex' }],
+    },
+    // Solid 2.0 has no <Index>; point to <For keyed={false}> (#239)
+    {
+      code: `let Component = (props) => <ol>{props.data.map((item, i) => <li>{i}</li>)}</ol>;`,
+      errors: [{ messageId: 'preferForOrForUnkeyed' }],
+      settings: { solid: { version: 2 } },
     },
   ],
 })
