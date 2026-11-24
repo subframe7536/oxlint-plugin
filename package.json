@@ -34,6 +34,10 @@
     "prepublishOnly": "pnpm run build",
     "test": "node --test \"src/**/*.test.ts\""
   },
+  "dependencies": {
+    "parse5": "^7.3.0",
+    "validate-html-nesting": "^1.2.4"
+  },
   "devDependencies": {
     "@oxlint/plugins": "^1.77.0",
     "bumpp": "^11.1.0",
@@ -41,10 +45,6 @@
     "oxlint": "^1.77.0",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2"
-  },
-  "dependencies": {
-    "parse5": "^7.3.0",
-    "validate-html-nesting": "^1.2.4"
   },
   "packageManager": "pnpm@12.18.0"
 }
