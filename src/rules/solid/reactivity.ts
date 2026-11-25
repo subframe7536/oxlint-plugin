@@ -1060,7 +1060,10 @@ export const reactivityRule: Rule = {
             ) {
               pushTrackedScope(arg1, 'called-function')
             }
-            if (matchImport('createEffect', callee.name) && isFunctionNode(arg1)) {
+            if (
+              matchImport(['createEffect', 'createRenderEffect'], callee.name) &&
+              isFunctionNode(arg1)
+            ) {
               pushTrackedScope(arg1, 'called-function')
             }
           } else if (matchImport('untrack', callee.name) && arg0) {
@@ -1194,8 +1197,6 @@ export const reactivityRule: Rule = {
             pushTrackedScope(node.arguments[1], 'called-function')
           } else if (
             property.type === 'Identifier' &&
-            node.callee.object.type === 'Identifier' &&
-            ['window', 'globalThis', 'self'].includes(node.callee.object.name) &&
             [
               'setInterval',
               'setTimeout',
