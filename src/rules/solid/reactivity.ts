@@ -178,15 +178,6 @@ const getReturnedVar = (id: T.Node, context: CompatContext): Variable | null => 
   return null
 }
 
-const ASYNC_CALLBACK_METHODS = [
-  'setInterval',
-  'setTimeout',
-  'setImmediate',
-  'requestAnimationFrame',
-  'requestIdleCallback',
-  'queueMicrotask',
-]
-
 export const reactivityRule: Rule = {
   meta: {
     type: 'problem',
@@ -338,25 +329,12 @@ export const reactivityRule: Rule = {
       }
     }
 
-    const isLikelyComponentOrHook = (node: FunctionNode): boolean => {
-      const functionName = getFunctionName(node)
-      if (!functionName) return true
-      return (
-        !/^[a-z]/.test(functionName) ||
-        /^(?:use|create)[A-Z]/.test(functionName) ||
-        matchesCustomReactive(functionName)
-      )
-    }
-
     const onFunctionEnter = (node: ProgramOrFunctionNode) => {
       if (isFunctionNode(node)) {
         if (scopeStack.syncCallbacks.has(node)) {
           return
         }
-        markPropsOnCondition(
-          node,
-          (props) => isPropsByName(props.name) && isLikelyComponentOrHook(node),
-        )
+        markPropsOnCondition(node, (props) => isPropsByName(props.name))
       }
       scopeStack.push(new ScopeStackItem(node))
     }
@@ -373,31 +351,9 @@ export const reactivityRule: Rule = {
       }
     }
 
-    const isReturnedNode = (node: T.Node): boolean => {
-      const parent = node.parent && ignoreTransparentWrappers(node.parent, true)
-      return (
-        parent?.type === 'ReturnStatement' ||
-        (parent?.type === 'ArrowFunctionExpression' &&
-          ignoreTransparentWrappers(parent.body) === node)
-      )
-    }
-
-    const isDirectlyReturned = (fn: FunctionNode): boolean => {
-      if (isReturnedNode(fn)) return true
-      const parent = fn.parent && ignoreTransparentWrappers(fn.parent, true)
-      return Boolean(
-        parent?.type === 'CallExpression' &&
-        parent.callee.type === 'MemberExpression' &&
-        !parent.callee.computed &&
-        parent.callee.object.type === 'Identifier' &&
-        parent.callee.object.name === 'Object' &&
-        parent.callee.property.type === 'Identifier' &&
-        parent.callee.property.name === 'assign' &&
-        parent.arguments[0] &&
-        ignoreTransparentWrappers(parent.arguments[0]) === fn &&
-        isReturnedNode(parent),
-      )
-    }
+    const isDirectlyReturned = (fn: FunctionNode): boolean =>
+      fn.parent?.type === 'ReturnStatement' ||
+      (fn.parent?.type === 'ArrowFunctionExpression' && fn.parent.body === fn)
 
     const getEffectivePropertyParent = (fn: FunctionNode): T.Node | null => {
       let child: T.Node = fn
@@ -598,10 +554,7 @@ export const reactivityRule: Rule = {
     const onFunctionExit = (currentScopeNode: ProgramOrFunctionNode) => {
       if (isFunctionNode(currentScopeNode)) {
         markPropsOnCondition(currentScopeNode, (props) => {
-          if (currentScope().hasJSX) {
-            if (isPropsByName(props.name)) {
-              return !isLikelyComponentOrHook(currentScopeNode)
-            }
+          if (!isPropsByName(props.name) && currentScope().hasJSX) {
             const functionName = getFunctionName(currentScopeNode)
             if (functionName && !/^[a-z]/.test(functionName)) return true
           }
@@ -1149,7 +1102,13 @@ export const reactivityRule: Rule = {
               ['onMount', 'onCleanup', 'onError', 'onSettled', 'onFlush', 'action'],
               callee.name,
             ) ||
-            ASYNC_CALLBACK_METHODS.includes(callee.name)
+            [
+              'setInterval',
+              'setTimeout',
+              'setImmediate',
+              'requestAnimationFrame',
+              'requestIdleCallback',
+            ].includes(callee.name)
           ) {
             pushTrackedScope(arg0, 'called-function')
           } else if (matchImport('on', callee.name)) {
@@ -1238,7 +1197,13 @@ export const reactivityRule: Rule = {
             pushTrackedScope(node.arguments[1], 'called-function')
           } else if (
             property.type === 'Identifier' &&
-            ASYNC_CALLBACK_METHODS.includes(property.name)
+            [
+              'setInterval',
+              'setTimeout',
+              'setImmediate',
+              'requestAnimationFrame',
+              'requestIdleCallback',
+            ].includes(property.name)
           ) {
             if (node.arguments[0]) {
               pushTrackedScope(node.arguments[0], 'called-function')
