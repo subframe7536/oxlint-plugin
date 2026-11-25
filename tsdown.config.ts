@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown'
 export default defineConfig({
   entry: 'src/*.ts',
   dts: {
-    oxc: true,
+    generator: 'tsrs',
   },
   exports: true,
   deps: {
